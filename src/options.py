@@ -70,8 +70,8 @@ class TestOptions():
     self.parser.add_argument('--resume', type=str, required=True, help='specified the dir of saved models for resume the training')
     self.parser.add_argument('--gpu', type=int, default=0, help='gpu')
 
-  def parse(self):
-    self.opt = self.parser.parse_args()
+  def parse(self, options_string=None):
+    self.opt = self.parser.parse_args(options_string)
     args = vars(self.opt)
     print('\n--- load options ---')
     for name, value in sorted(args.items()):
