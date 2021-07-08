@@ -40,3 +40,5 @@ test/.coverage
 */**/*.dylib*
 test/data/legacy_serialized.pt
 *~
+results/
+datasets/cat2dog
