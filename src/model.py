@@ -12,6 +12,7 @@ class DRIT(nn.Module):
     self.nz = 8
     self.concat = opts.concat
     self.no_ms = opts.no_ms
+    self.lambda_paired_L1 = opts.lambda_paired_L1
 
     # discriminators
     if opts.dis_scale > 1:
@@ -332,12 +333,20 @@ class DRIT(nn.Module):
     loss_G_L1_AA = self.criterionL1(self.fake_AA_encoded, self.real_A_encoded) * 10
     loss_G_L1_BB = self.criterionL1(self.fake_BB_encoded, self.real_B_encoded) * 10
 
+    # paired reconstruction loss
+    loss_G_paired_L1=0
+    if self.lambda_paired_L1 > 0:
+        loss_G_paired_L1 = self.lambda_paired_L1 * ( \
+                            self.criterionL1(self.real_A_encoded, self.fake_A_encoded) + \
+                            self.criterionL1(self.real_B_encoded, self.fake_B_encoded) )
+
     loss_G = loss_G_GAN_A + loss_G_GAN_B + \
              loss_G_GAN_Acontent + loss_G_GAN_Bcontent + \
              loss_G_L1_AA + loss_G_L1_BB + \
              loss_G_L1_A + loss_G_L1_B + \
              loss_kl_zc_a + loss_kl_zc_b + \
-             loss_kl_za_a + loss_kl_za_b
+             loss_kl_za_a + loss_kl_za_b + \
+             loss_G_paired_L1
 
     loss_G.backward(retain_graph=True)
 
@@ -353,6 +362,7 @@ class DRIT(nn.Module):
     self.l1_recon_B_loss = loss_G_L1_B.item()
     self.l1_recon_AA_loss = loss_G_L1_AA.item()
     self.l1_recon_BB_loss = loss_G_L1_BB.item()
+    self.l1_paired_loss = loss_G_paired_L1.item()
     self.G_loss = loss_G.item()
 
   def backward_G_GAN_content(self, data):

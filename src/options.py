@@ -37,6 +37,7 @@ class TrainOptions():
     self.parser.add_argument('--resume', type=str, default=None, help='specified the dir of saved models for resume the training')
     self.parser.add_argument('--d_iter', type=int, default=3, help='# of iterations for updating content discriminator')
     self.parser.add_argument('--gpu', type=int, default=0, help='gpu')
+    self.parser.add_argument('--lambda_paired_L1', type=float, default=0.0, help='paired image reconstruction loss')
 
   def parse(self, options_string=None):
     self.opt = self.parser.parse_args(options_string)
