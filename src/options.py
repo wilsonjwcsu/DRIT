@@ -6,6 +6,7 @@ class TrainOptions():
 
     # data loader related
     self.parser.add_argument('--dataroot', type=str, required=True, help='path of data')
+    self.parser.add_argument('--paired_dataset', action='store_true', help='load paired data (pix2pix format)')
     self.parser.add_argument('--phase', type=str, default='train', help='phase for dataloading')
     self.parser.add_argument('--batch_size', type=int, default=2, help='batch size')
     self.parser.add_argument('--resize_size', type=int, default=256, help='resized image size for training')
@@ -51,6 +52,7 @@ class TestOptions():
 
     # data loader related
     self.parser.add_argument('--dataroot', type=str, required=True, help='path of data')
+    self.parser.add_argument('--paired_dataset', action='store_true', help='load paired data (pix2pix format)')
     self.parser.add_argument('--phase', type=str, default='test', help='phase for dataloading')
     self.parser.add_argument('--resize_size', type=int, default=256, help='resized image size for training')
     self.parser.add_argument('--crop_size', type=int, default=216, help='cropped image size for training')

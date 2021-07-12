@@ -1,6 +1,6 @@
 import torch
 from options import TrainOptions
-from dataset import dataset_unpair
+from dataset import dataset_unpair, dataset_pair
 from model import DRIT
 from saver import Saver
 
@@ -9,9 +9,12 @@ def main():
   parser = TrainOptions()
   opts = parser.parse()
 
-  # daita loader
+  # data loader
   print('\n--- load dataset ---')
-  dataset = dataset_unpair(opts)
+  if opts.paired_dataset:
+    dataset = dataset_pair(opts)
+  else:
+    dataset = dataset_unpair(opts)
   train_loader = torch.utils.data.DataLoader(dataset, batch_size=opts.batch_size, shuffle=True, num_workers=opts.nThreads)
 
   # model

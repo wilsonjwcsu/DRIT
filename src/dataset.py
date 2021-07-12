@@ -87,3 +87,70 @@ class dataset_unpair(data.Dataset):
 
   def __len__(self):
     return self.dataset_size
+
+class dataset_pair(data.Dataset):
+  # paired dataset
+  # Jesse Wilson (2021) jesse.wilson@colostate.edu
+  # compatible w/ pix2pix datasets
+  # loads A, B from the same image by splitting it in half horizontally
+
+  def __init__(self, opts):
+    self.dataroot = opts.dataroot
+
+    # A
+    image_files = os.listdir(os.path.join(self.dataroot, opts.phase))
+    self.images = [os.path.join(self.dataroot, opts.phase, x) for x in image_files]
+
+    self.dataset_size = len(self.images)
+    self.input_dim_A = opts.input_dim_a
+    self.input_dim_B = opts.input_dim_b
+
+    # setup image transformation
+    # TODO write paired transformations for random augmentations
+    transforms = [Resize((opts.resize_size, opts.resize_size), Image.BICUBIC)]
+    #if opts.phase == 'train':
+    #  transforms.append(RandomCrop(opts.crop_size))
+    #else:
+    #  transforms.append(CenterCrop(opts.crop_size))
+    #if not opts.no_flip:
+    #  transforms.append(RandomHorizontalFlip())
+    transforms.append(ToTensor())
+    transforms.append(Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))
+    self.transforms = Compose(transforms)
+    print('A|B: %d image pairs' % self.dataset_size)
+    return
+
+  def __getitem__(self, index):
+    data_A, data_B = self.load_img(self.images[index], self.input_dim_A)
+
+    return data_A, data_B
+
+  def load_img(self, img_name, input_dim):
+    img = Image.open(img_name).convert('RGB')
+
+
+    # split image into A, B
+    w,h = img.size
+    whalf = w//2
+    img_A = img.crop((0,0,whalf,h))
+    img_B = img.crop((whalf,0,w,h))
+
+
+    # apply transformations
+    # TODO apply transforms in a matched manner
+    img_A = self.transforms(img_A)
+    img_B = self.transforms(img_B)
+
+    # convert to grayscale if requested
+    # TODO: enable different nc for input and output images
+    if input_dim == 1:
+      img_A = img_A[0, ...] * 0.299 + img_A[1, ...] * 0.587 + img_A[2, ...] * 0.114
+      img_A = img_A.unsqueeze(0)
+
+      img_B = img_B[0, ...] * 0.299 + img_B[1, ...] * 0.587 + img_B[2, ...] * 0.114
+      img_B = img_B.unsqueeze(0)
+
+    return img_A, img_B
+
+  def __len__(self):
+    return self.dataset_size
