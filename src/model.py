@@ -14,6 +14,7 @@ class DRIT(nn.Module):
     self.no_ms = opts.no_ms
     self.lambda_paired_L1 = opts.lambda_paired_L1
     self.lambda_paired_zc = opts.lambda_paired_zc
+    self.lambda_paired_embedding = opts.lambda_paired_embedding
 
     # discriminators
     if opts.dis_scale > 1:
@@ -305,6 +306,16 @@ class DRIT(nn.Module):
     self.enc_c_opt.step()
     self.gen_opt.step()
 
+    # update paired G loss
+    if self.lambda_paired_embedding > 0:
+        self.enc_c_opt.zero_grad()
+        self.enc_a_opt.zero_grad()
+        self.gen_opt.zero_grad()
+        self.forward()
+        self.backward_G_paired()
+        self.gen_opt.step()
+        
+
   def backward_EG(self):
     # content Ladv for generator
     loss_G_GAN_Acontent = self.backward_G_GAN_content(self.z_content_a)
@@ -430,6 +441,20 @@ class DRIT(nn.Module):
     else:
       self.gan2_loss_a = loss_G_GAN2_A.item()
       self.gan2_loss_b = loss_G_GAN2_B.item()
+
+  def backward_G_paired(self):
+    # paired embedding loss functions for generator only
+    loss_zc_a_paired = torch.mean(torch.abs(self.z_content_a - self.z_content_recon_b))
+    loss_zc_b_paired = torch.mean(torch.abs(self.z_content_b - self.z_content_recon_a))
+
+    loss_za_a_paired = torch.mean(torch.abs(self.z_attr_a - self.z_attr_recon_a))
+    loss_za_b_paired = torch.mean(torch.abs(self.z_attr_b - self.z_attr_recon_b))
+
+    loss_paired_embedding = self.lambda_paired_embedding * (loss_zc_a_paired + loss_zc_b_paired + loss_za_a_paired + loss_za_b_paired)
+
+    loss_paired_embedding.backward()
+    self.l1_paired_embedding_loss = loss_paired_embedding.item()
+
   def update_lr(self):
     self.disA_sch.step()
     self.disB_sch.step()
