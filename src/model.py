@@ -15,18 +15,27 @@ class DRIT(nn.Module):
     self.lambda_paired_L1 = opts.lambda_paired_L1
     self.lambda_paired_zc = opts.lambda_paired_zc
     self.lambda_paired_embedding = opts.lambda_paired_embedding
+    self.dis_paired = opts.dis_paired
 
     # discriminators
-    if opts.dis_scale > 1:
-      self.disA = networks.MultiScaleDis(opts.input_dim_a, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disB = networks.MultiScaleDis(opts.input_dim_b, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disA2 = networks.MultiScaleDis(opts.input_dim_a, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disB2 = networks.MultiScaleDis(opts.input_dim_b, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+    if self.dis_paired:
+        dis_dim_a = opts.input_dim_a + opts.input_dim_b
+        dis_dim_b = dis_dim_a
     else:
-      self.disA = networks.Dis(opts.input_dim_a, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disB = networks.Dis(opts.input_dim_b, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disA2 = networks.Dis(opts.input_dim_a, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disB2 = networks.Dis(opts.input_dim_b, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+        dis_dim_a = opts.input_dim_a
+        dis_dim_b = opts.input_dim_b
+
+        
+    if opts.dis_scale > 1:
+      self.disA = networks.MultiScaleDis(dis_dim_a, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+      self.disB = networks.MultiScaleDis(dis_dim_b, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+      self.disA2 = networks.MultiScaleDis(dis_dim_a, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+      self.disB2 = networks.MultiScaleDis(dis_dim_b, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+    else:
+      self.disA = networks.Dis(dis_dim_a, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+      self.disB = networks.Dis(dis_dim_b, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+      self.disA2 = networks.Dis(dis_dim_a, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+      self.disB2 = networks.Dis(dis_dim_b, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
     self.disContent = networks.Dis_content()
 
     # encoders
@@ -224,31 +233,61 @@ class DRIT(nn.Module):
 
     # update disA
     self.disA_opt.zero_grad()
-    loss_D1_A = self.backward_D(self.disA, self.real_A_encoded, self.fake_A_encoded)
+    if self.dis_paired:
+        loss_D1_A = self.backward_D(self.disA, 
+                        torch.cat((self.real_A_encoded,self.real_B_encoded),1), 
+                        torch.cat((self.fake_A_encoded,self.real_B_encoded),1))
+    else:
+        loss_D1_A = self.backward_D(self.disA, self.real_A_encoded, self.fake_A_encoded)
     self.disA_loss = loss_D1_A.item()
     self.disA_opt.step()
 
     # update disA2
     self.disA2_opt.zero_grad()
-    loss_D2_A = self.backward_D(self.disA2, self.real_A_random, self.fake_A_random)
+    if self.dis_paired:
+        loss_D2_A = self.backward_D(self.disA2,
+                    torch.cat((self.real_A_random,self.real_B_random),1),
+                    torch.cat((self.fake_A_random,self.real_B_encoded),1))
+    else:
+        loss_D2_A = self.backward_D(self.disA2, self.real_A_random, self.fake_A_random)
     self.disA2_loss = loss_D2_A.item()
     if not self.no_ms:
-      loss_D2_A2 = self.backward_D(self.disA2, self.real_A_random, self.fake_A_random2)
+      if self.dis_paired:
+        loss_D2_A2 = self.backward_D(self.disA2,
+                     torch.cat((self.real_A_random,self.real_B_random),1),
+                     torch.cat((self.fake_A_random2,self.real_B_encoded),1))
+      else:
+        loss_D2_A2 = self.backward_D(self.disA2, self.real_A_random, self.fake_A_random2)
       self.disA2_loss += loss_D2_A2.item()
     self.disA2_opt.step()
 
     # update disB
     self.disB_opt.zero_grad()
-    loss_D1_B = self.backward_D(self.disB, self.real_B_encoded, self.fake_B_encoded)
+    if self.dis_paired:
+        loss_D1_B = self.backward_D(self.disB,
+                    torch.cat((self.real_A_encoded,self.real_B_encoded),1),
+                    torch.cat((self.real_A_encoded,self.fake_B_encoded),1))
+    else:
+        loss_D1_B = self.backward_D(self.disB, self.real_B_encoded, self.fake_B_encoded)
     self.disB_loss = loss_D1_B.item()
     self.disB_opt.step()
 
     # update disB2
     self.disB2_opt.zero_grad()
-    loss_D2_B = self.backward_D(self.disB2, self.real_B_random, self.fake_B_random)
+    if self.dis_paired:
+        loss_D2_B = self.backward_D(self.disB2,
+                    torch.cat((self.real_A_random,self.real_B_random),1),
+                    torch.cat((self.real_A_encoded,self.fake_B_random),1))
+    else:
+        loss_D2_B = self.backward_D(self.disB2, self.real_B_random, self.fake_B_random)
     self.disB2_loss = loss_D2_B.item()
     if not self.no_ms:
-      loss_D2_B2 = self.backward_D(self.disB2, self.real_B_random, self.fake_B_random2)
+      if self.dis_paired:
+        loss_D2_B2 = self.backward_D(self.disB2,
+                     torch.cat((self.real_A_random,self.real_B_random),1),
+                     torch.cat((self.real_A_encoded,self.fake_B_random2),1))
+      else:
+        loss_D2_B2 = self.backward_D(self.disB2, self.real_B_random, self.fake_B_random2)
       self.disB2_loss += loss_D2_B2.item()
     self.disB2_opt.step()
 
@@ -322,8 +361,16 @@ class DRIT(nn.Module):
     loss_G_GAN_Bcontent = self.backward_G_GAN_content(self.z_content_b)
 
     # Ladv for generator
-    loss_G_GAN_A = self.backward_G_GAN(self.fake_A_encoded, self.disA)
-    loss_G_GAN_B = self.backward_G_GAN(self.fake_B_encoded, self.disB)
+    if self.dis_paired:
+        loss_G_GAN_A = self.backward_G_GAN(
+                        torch.cat((self.fake_A_encoded,self.real_B_encoded),1),
+                        self.disA)
+        loss_G_GAN_B = self.backward_G_GAN(
+                        torch.cat((self.real_A_encoded,self.fake_B_encoded),1),
+                        self.disB)
+    else:
+        loss_G_GAN_A = self.backward_G_GAN(self.fake_A_encoded, self.disA)
+        loss_G_GAN_B = self.backward_G_GAN(self.fake_B_encoded, self.disB)
 
     # KL loss - z_a
     if self.concat:
@@ -405,11 +452,27 @@ class DRIT(nn.Module):
 
   def backward_G_alone(self):
     # Ladv for generator
-    loss_G_GAN2_A = self.backward_G_GAN(self.fake_A_random, self.disA2)
-    loss_G_GAN2_B = self.backward_G_GAN(self.fake_B_random, self.disB2)
+    if self.dis_paired:
+        loss_G_GAN2_A = self.backward_G_GAN(
+                            torch.cat((self.fake_A_random,self.real_B_encoded),1),
+                            self.disA2)
+        loss_G_GAN2_B = self.backward_G_GAN(
+                            torch.cat((self.real_A_encoded,self.fake_B_random),1),
+                            self.disB2)
+    else:
+        loss_G_GAN2_A = self.backward_G_GAN(self.fake_A_random, self.disA2)
+        loss_G_GAN2_B = self.backward_G_GAN(self.fake_B_random, self.disB2)
     if not self.no_ms:
-      loss_G_GAN2_A2 = self.backward_G_GAN(self.fake_A_random2, self.disA2)
-      loss_G_GAN2_B2 = self.backward_G_GAN(self.fake_B_random2, self.disB2)
+      if self.dis_paired:
+        loss_G_GAN2_A2 = self.backward_G_GAN(
+                            torch.cat((self.fake_A_random2,self.real_B_encoded),1),
+                            self.disA2)
+        loss_G_GAN2_B2 = self.backward_G_GAN(
+                            torch.cat((self.real_A_encoded,self.fake_B_random2),1),
+                            self.disB2)
+      else:
+        loss_G_GAN2_A2 = self.backward_G_GAN(self.fake_A_random2, self.disA2)
+        loss_G_GAN2_B2 = self.backward_G_GAN(self.fake_B_random2, self.disB2)
 
     # mode seeking loss for A-->B and B-->A
     if not self.no_ms:

@@ -40,6 +40,7 @@ class TrainOptions():
     self.parser.add_argument('--lambda_paired_L1', type=float, default=0.0, help='paired image reconstruction loss')
     self.parser.add_argument('--lambda_paired_zc', type=float, default=0.0, help='paired image content encoder loss')
     self.parser.add_argument('--lambda_paired_embedding', type=float, default=0.0, help='generator paired embedding loss')
+    self.parser.add_argument('--dis_paired', action='store_true', help='use pix2pix-style paired discriminators')
 
   def parse(self, options_string=None):
     self.opt = self.parser.parse_args(options_string)
