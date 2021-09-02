@@ -16,6 +16,7 @@ class DRIT(nn.Module):
     self.lambda_paired_zc = opts.lambda_paired_zc
     self.lambda_paired_embedding = opts.lambda_paired_embedding
     self.dis_paired = opts.dis_paired
+    self.dis_paired_neg_examples = opts.dis_paired_neg_examples
 
     # discriminators
     if self.dis_paired:
@@ -237,6 +238,10 @@ class DRIT(nn.Module):
         loss_D1_A = self.backward_D(self.disA, 
                         torch.cat((self.real_A_encoded,self.real_B_encoded),1), 
                         torch.cat((self.fake_A_encoded,self.real_B_encoded),1))
+        if self.dis_paired_neg_examples:
+            loss_D1_A = loss_D1_A + self.backward_D(self.disA,
+                        torch.cat((self.real_A_random, self.real_B_random),1),
+                        torch.cat((self.real_A_encoded, self.real_B_random),1))
     else:
         loss_D1_A = self.backward_D(self.disA, self.real_A_encoded, self.fake_A_encoded)
     self.disA_loss = loss_D1_A.item()
@@ -248,6 +253,10 @@ class DRIT(nn.Module):
         loss_D2_A = self.backward_D(self.disA2,
                     torch.cat((self.real_A_random,self.real_B_random),1),
                     torch.cat((self.fake_A_random,self.real_B_encoded),1))
+        if self.dis_paired_neg_examples:
+            loss_D2_A = loss_D2_A + self.backward_D(self.disA2,
+                        torch.cat((self.real_A_random, self.real_B_random),1),
+                        torch.cat((self.real_A_encoded, self.real_B_random),1))
     else:
         loss_D2_A = self.backward_D(self.disA2, self.real_A_random, self.fake_A_random)
     self.disA2_loss = loss_D2_A.item()
@@ -267,6 +276,10 @@ class DRIT(nn.Module):
         loss_D1_B = self.backward_D(self.disB,
                     torch.cat((self.real_A_encoded,self.real_B_encoded),1),
                     torch.cat((self.real_A_encoded,self.fake_B_encoded),1))
+        if self.dis_paired_neg_examples:
+            loss_D1_B = loss_D1_B + self.backward_D(self.disB,
+                        torch.cat((self.real_A_random, self.real_B_random),1),
+                        torch.cat((self.real_A_encoded, self.real_B_random),1))
     else:
         loss_D1_B = self.backward_D(self.disB, self.real_B_encoded, self.fake_B_encoded)
     self.disB_loss = loss_D1_B.item()
@@ -278,6 +291,10 @@ class DRIT(nn.Module):
         loss_D2_B = self.backward_D(self.disB2,
                     torch.cat((self.real_A_random,self.real_B_random),1),
                     torch.cat((self.real_A_encoded,self.fake_B_random),1))
+        if self.dis_paired_neg_examples:
+            loss_D2_B = loss_D2_B + self.backward_D(self.disB2,
+                        torch.cat((self.real_A_random, self.real_B_random),1),
+                        torch.cat((self.real_A_encoded, self.real_B_random),1))
     else:
         loss_D2_B = self.backward_D(self.disB2, self.real_B_random, self.fake_B_random)
     self.disB2_loss = loss_D2_B.item()

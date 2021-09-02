@@ -41,6 +41,7 @@ class TrainOptions():
     self.parser.add_argument('--lambda_paired_zc', type=float, default=0.0, help='paired image content encoder loss')
     self.parser.add_argument('--lambda_paired_embedding', type=float, default=0.0, help='generator paired embedding loss')
     self.parser.add_argument('--dis_paired', action='store_true', help='use pix2pix-style paired discriminators')
+    self.parser.add_argument('--dis_paired_neg_examples', action='store_true', help='train paired discr with examples of real, mismatched pairs')
 
   def parse(self, options_string=None):
     self.opt = self.parser.parse_args(options_string)
