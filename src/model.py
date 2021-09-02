@@ -17,6 +17,7 @@ class DRIT(nn.Module):
     self.lambda_paired_embedding = opts.lambda_paired_embedding
     self.dis_paired = opts.dis_paired
     self.dis_paired_neg_examples = opts.dis_paired_neg_examples
+    self.contrastive_paired_zc = opts.contrastive_paired_zc
 
     # discriminators
     if self.dis_paired:
@@ -65,6 +66,8 @@ class DRIT(nn.Module):
 
     # Setup the loss function for training
     self.criterionL1 = torch.nn.L1Loss()
+    if self.contrastive_paired_zc:
+        self.criterionTriplet = nn.TripletMarginLoss()
 
   def initialize(self):
     self.disA.apply(networks.gaussian_weights_init)
@@ -141,6 +144,9 @@ class DRIT(nn.Module):
 
     # get encoded z_c
     self.z_content_a, self.z_content_b = self.enc_c.forward(self.real_A_encoded, self.real_B_encoded)
+    if self.contrastive_paired_zc:
+        # get extra content embeddings for contrastive training of encoder
+        self.z_content_a_random, self.z_content_b_random = self.enc_c.forward(self.real_A_random, self.real_B_random)
 
     # get encoded z_a
     if self.concat:
@@ -418,8 +424,13 @@ class DRIT(nn.Module):
     # paired content embedding loss
     loss_zc_paired = 0
     if self.lambda_paired_zc > 0:
-        loss_zc_paired = self.lambda_paired_zc * ( \
-                          self.criterionL1(self.z_content_a, self.z_content_b ) )
+        if self.contrastive_paired_zc:
+            loss_zc_paired = self.lambda_paired_zc * ( \
+                                self.criterionTriplet(self.z_content_a, self.z_content_b, self.z_content_b_random) \
+                                + self.criterionTriplet(self.z_content_a_random, self.z_content_b_random, self.z_content_b) )
+        else:
+            loss_zc_paired = self.lambda_paired_zc * ( \
+                              self.criterionL1(self.z_content_a, self.z_content_b ) )
 
 
     loss_G = loss_G_GAN_A + loss_G_GAN_B + \
