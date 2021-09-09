@@ -40,6 +40,7 @@ class TrainOptions():
     self.parser.add_argument('--lambda_paired_L1', type=float, default=0.0, help='paired image reconstruction loss')
     self.parser.add_argument('--lambda_paired_zc', type=float, default=0.0, help='paired image content encoder loss')
     self.parser.add_argument('--lambda_paired_embedding', type=float, default=0.0, help='generator paired embedding loss')
+    self.parser.add_argument('--lambda_D_content', type=float, default=1.0, help='content discriminator adversarial loss weight')
     self.parser.add_argument('--dis_paired', action='store_true', help='use pix2pix-style paired discriminators')
     self.parser.add_argument('--dis_paired_neg_examples', action='store_true', help='train paired discr with examples of real, mismatched pairs')
     self.parser.add_argument('--contrastive_paired_zc', action='store_true', help='for paired images, use contrastive loss to train content encoder')
