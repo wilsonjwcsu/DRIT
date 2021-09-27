@@ -150,6 +150,7 @@ class DRIT(nn.Module):
 
     # get encoded z_c
     self.z_content_a, self.z_content_b = self.enc_c.forward(self.real_A_encoded, self.real_B_encoded)
+    
     if self.contrastive_paired_zc:
         # get extra content embeddings for contrastive training of encoder
         self.z_content_a_random, self.z_content_b_random = self.enc_c.forward(self.real_A_random, self.real_B_random)
@@ -193,6 +194,7 @@ class DRIT(nn.Module):
 
     # get reconstructed encoded z_c
     self.z_content_recon_b, self.z_content_recon_a = self.enc_c.forward(self.fake_A_encoded, self.fake_B_encoded)
+    self.z_content_random_a, self.z_content_random_b = self.enc_c.forward(self.fake_A_random, self.fake_B_random)
 
     # get reconstructed encoded z_a
     if self.concat:
@@ -203,8 +205,19 @@ class DRIT(nn.Module):
       std_b = self.logvar_recon_b.mul(0.5).exp_()
       eps_b = self.get_z_random(std_b.size(0), std_b.size(1), 'gauss')
       self.z_attr_recon_b = eps_b.mul(std_b).add_(self.mu_recon_b)
+      
+      # add code to calculate z_attr_random within this option
+      self.mu_random_a, self.logvar_random_a, self.mu_random_b, self.logvar_random_b = self.enc_a.forward(self.fake_A_random, self.fake_B_random)
+      std_a = self.logvar_random_a.mul(0.5).exp_()
+      eps_a = self.get_z_random(std_a.size(0), std_a.size(1), 'gauss')
+      self.z_attr_random_a = eps_a.mul(std_a).add_(self.mu_random_a)
+      std_b = self.logvar_random_b.mul(0.5).exp_()
+      eps_b = self.get_z_random(std_b.size(0), std_b.size(1), 'gauss')
+      self.z_attr_random_b = eps_b.mul(std_b).add_(self.mu_random_b)
+      
     else:
-      self.z_attr_recon_a, self.z_attr_recon_b = self.enc_a.forward(self.fake_A_encoded, self.fake_B_encoded)
+      self.z_attr_recon_a, self.z_attr_recon_b = self.enc_a.forward(self.fake_A_encoded, self.fake_B_encoded)      
+      self.z_attr_random_a, self.z_attr_random_b = self.enc_a.forward(self.fake_A_random, self.fake_B_random)
 
     # second cross translation
     self.fake_A_recon = self.gen.forward_a(self.z_content_recon_a, self.z_attr_recon_a)
@@ -552,11 +565,19 @@ class DRIT(nn.Module):
     # paired embedding loss functions for generator only
     loss_zc_a_paired = torch.mean(torch.abs(self.z_content_a - self.z_content_recon_b))
     loss_zc_b_paired = torch.mean(torch.abs(self.z_content_b - self.z_content_recon_a))
+    loss_zc_a_paired_r = torch.mean(torch.abs(self.z_content_a - self.z_content_random_b))
+    loss_zc_b_paired_r = torch.mean(torch.abs(self.z_content_b - self.z_content_random_a))
 
     loss_za_a_paired = torch.mean(torch.abs(self.z_attr_a - self.z_attr_recon_a))
     loss_za_b_paired = torch.mean(torch.abs(self.z_attr_b - self.z_attr_recon_b))
+    loss_za_a_paired_r = torch.mean(torch.abs(self.z_attr_random_a - self.z_random))
+    loss_za_b_paired_r = torch.mean(torch.abs(self.z_attr_random_b - self.z_random))
 
-    loss_paired_embedding = self.lambda_paired_embedding * (loss_zc_a_paired + loss_zc_b_paired + loss_za_a_paired + loss_za_b_paired)
+
+    loss_paired_embedding = self.lambda_paired_embedding * (loss_zc_a_paired + loss_zc_a_paired_r +
+                                                            loss_zc_b_paired + loss_zc_b_paired_r +
+                                                            loss_za_a_paired + loss_za_a_paired_r +
+                                                            loss_za_b_paired + loss_za_b_paired_r)
 
     loss_paired_embedding.backward()
     self.l1_paired_embedding_loss = loss_paired_embedding.item()
