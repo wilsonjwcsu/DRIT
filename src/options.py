@@ -38,6 +38,7 @@ class TrainOptions():
     self.parser.add_argument('--d_iter', type=int, default=3, help='# of iterations for updating content discriminator')
     self.parser.add_argument('--gpu', type=int, default=0, help='gpu')
     self.parser.add_argument('--lambda_paired_L1', type=float, default=0.0, help='paired image reconstruction loss')
+    self.parser.add_argument('--lambda_paired_L1_random', type=float, default=0.0, help='paired image reconstruction loss for random-attribute images')
     self.parser.add_argument('--lambda_paired_zc', type=float, default=0.0, help='paired image content encoder loss')
     self.parser.add_argument('--lambda_paired_embedding', type=float, default=0.0, help='generator paired embedding loss')
     self.parser.add_argument('--lambda_D_content', type=float, default=1.0, help='content discriminator adversarial loss weight')
