@@ -175,23 +175,23 @@ class DRIT(nn.Module):
 
     # first cross translation
     if not self.no_ms:
-      input_content_forA = torch.cat((self.z_content_b, self.z_content_a, self.z_content_b, self.z_content_b),0)
-      input_content_forB = torch.cat((self.z_content_a, self.z_content_b, self.z_content_a, self.z_content_a),0)
-      input_attr_forA = torch.cat((self.z_attr_a, self.z_attr_a, self.z_random, self.z_random2),0)
-      input_attr_forB = torch.cat((self.z_attr_b, self.z_attr_b, self.z_random, self.z_random2),0)
+      input_content_forA = torch.cat((self.z_content_b, self.z_content_a, self.z_content_b, self.z_content_b, self.z_content_a),0)
+      input_content_forB = torch.cat((self.z_content_a, self.z_content_b, self.z_content_a, self.z_content_a, self.z_content_b),0)
+      input_attr_forA = torch.cat((self.z_attr_a, self.z_attr_a, self.z_random, self.z_random2, self.z_random),0)
+      input_attr_forB = torch.cat((self.z_attr_b, self.z_attr_b, self.z_random, self.z_random2, self.z_random),0)
       output_fakeA = self.gen.forward_a(input_content_forA, input_attr_forA)
       output_fakeB = self.gen.forward_b(input_content_forB, input_attr_forB)
-      self.fake_A_encoded, self.fake_AA_encoded, self.fake_A_random, self.fake_A_random2 = torch.split(output_fakeA, self.z_content_a.size(0), dim=0)
-      self.fake_B_encoded, self.fake_BB_encoded, self.fake_B_random, self.fake_B_random2 = torch.split(output_fakeB, self.z_content_a.size(0), dim=0)
+      self.fake_A_encoded, self.fake_AA_encoded, self.fake_A_random, self.fake_A_random2, self.fake_AA_random = torch.split(output_fakeA, self.z_content_a.size(0), dim=0)
+      self.fake_B_encoded, self.fake_BB_encoded, self.fake_B_random, self.fake_B_random2, self.fake_BB_random = torch.split(output_fakeB, self.z_content_a.size(0), dim=0)
     else:
-      input_content_forA = torch.cat((self.z_content_b, self.z_content_a, self.z_content_b),0)
-      input_content_forB = torch.cat((self.z_content_a, self.z_content_b, self.z_content_a),0)
-      input_attr_forA = torch.cat((self.z_attr_a, self.z_attr_a, self.z_random),0)
-      input_attr_forB = torch.cat((self.z_attr_b, self.z_attr_b, self.z_random),0)
+      input_content_forA = torch.cat((self.z_content_b, self.z_content_a, self.z_content_b, self.z_content_a),0)
+      input_content_forB = torch.cat((self.z_content_a, self.z_content_b, self.z_content_a, self.z_content_b),0)
+      input_attr_forA = torch.cat((self.z_attr_a, self.z_attr_a, self.z_random, self.z_random),0)
+      input_attr_forB = torch.cat((self.z_attr_b, self.z_attr_b, self.z_random, self.z_random),0)
       output_fakeA = self.gen.forward_a(input_content_forA, input_attr_forA)
       output_fakeB = self.gen.forward_b(input_content_forB, input_attr_forB)
-      self.fake_A_encoded, self.fake_AA_encoded, self.fake_A_random = torch.split(output_fakeA, self.z_content_a.size(0), dim=0)
-      self.fake_B_encoded, self.fake_BB_encoded, self.fake_B_random = torch.split(output_fakeB, self.z_content_a.size(0), dim=0)
+      self.fake_A_encoded, self.fake_AA_encoded, self.fake_A_random, self.fake_AA_random = torch.split(output_fakeA, self.z_content_a.size(0), dim=0)
+      self.fake_B_encoded, self.fake_BB_encoded, self.fake_B_random, self.fake_AA_random = torch.split(output_fakeB, self.z_content_a.size(0), dim=0)
 
     # get reconstructed encoded z_c
     self.z_content_recon_b, self.z_content_recon_a = self.enc_c.forward(self.fake_A_encoded, self.fake_B_encoded)
@@ -228,8 +228,10 @@ class DRIT(nn.Module):
     # for display
     self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), self.fake_B_encoded[0:1].detach().cpu(), \
                                     self.fake_B_random[0:1].detach().cpu(), self.fake_AA_encoded[0:1].detach().cpu(), self.fake_A_recon[0:1].detach().cpu(), \
+                                    self.fake_AA_random[0:1].detach().cpu(), \
                                     self.real_B_encoded[0:1].detach().cpu(), self.fake_A_encoded[0:1].detach().cpu(), \
-                                    self.fake_A_random[0:1].detach().cpu(), self.fake_BB_encoded[0:1].detach().cpu(), self.fake_B_recon[0:1].detach().cpu()), dim=0)
+                                    self.fake_A_random[0:1].detach().cpu(), self.fake_BB_encoded[0:1].detach().cpu(), self.fake_B_recon[0:1].detach().cpu(), \
+                                    self.fake_BB_random[0:1].detach().cpu() ), dim=0)
 
     # for latent regression
     if self.concat:
