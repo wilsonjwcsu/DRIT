@@ -14,6 +14,7 @@ class DRIT(nn.Module):
     self.no_ms = opts.no_ms
     self.lambda_paired_L1 = opts.lambda_paired_L1
     self.lambda_paired_L1_random = opts.lambda_paired_L1_random
+    self.lambda_L1_random_autoencoder = opts.lambda_L1_random_autoencoder
     self.lambda_paired_zc = opts.lambda_paired_zc
     self.lambda_paired_embedding = opts.lambda_paired_embedding
     self.lambda_D_content = opts.lambda_D_content
@@ -444,6 +445,8 @@ class DRIT(nn.Module):
     loss_G_L1_B = self.criterionL1(self.fake_B_recon, self.real_B_encoded) * 10
     loss_G_L1_AA = self.criterionL1(self.fake_AA_encoded, self.real_A_encoded) * 10
     loss_G_L1_BB = self.criterionL1(self.fake_BB_encoded, self.real_B_encoded) * 10
+    loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_AA_random, self.real_A_encoded)
+    loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_BB_random, self.real_B_encoded)
 
     # paired reconstruction loss
     loss_G_paired_L1=0
@@ -475,6 +478,7 @@ class DRIT(nn.Module):
              loss_G_GAN_Acontent + loss_G_GAN_Bcontent + \
              loss_G_L1_AA + loss_G_L1_BB + \
              loss_G_L1_A + loss_G_L1_B + \
+             loss_G_L1_AA_random + loss_G_L1_BB_random + \
              loss_kl_zc_a + loss_kl_zc_b + \
              loss_kl_za_a + loss_kl_za_b + \
              loss_G_paired_L1 + loss_G_paired_L1_random + \
@@ -495,6 +499,9 @@ class DRIT(nn.Module):
     self.l1_recon_B_loss = loss_G_L1_B.item()
     self.l1_recon_AA_loss = loss_G_L1_AA.item()
     self.l1_recon_BB_loss = loss_G_L1_BB.item()
+    if self.lambda_L1_random_autoencoder > 0:
+        self.l1_recon_AA_random_loss = loss_G_L1_AA_random
+        self.l1_recon_BB_random_loss = loss_G_L1_BB_random
     if self.lambda_paired_L1 > 0:
         self.l1_paired_loss = loss_G_paired_L1.item()
     if self.lambda_paired_L1_random > 0:
