@@ -96,18 +96,20 @@ class E_content(nn.Module):
     encA_c = []
     tch = 64
     encA_c += [LeakyReLUConv2d(input_dim_a, tch, kernel_size=7, stride=1, padding=3)]
-    for i in range(1, 3):
-      encA_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=2, padding=1)]
-      tch *= 2
+    encA_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=6, padding=1)]
+    tch *= 2
+    encA_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=4, padding=1)]
+    tch *= 2
     for i in range(0, 3):
       encA_c += [INSResBlock(tch, tch)]
 
     encB_c = []
     tch = 64
     encB_c += [LeakyReLUConv2d(input_dim_b, tch, kernel_size=7, stride=1, padding=3)]
-    for i in range(1, 3):
-      encB_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=2, padding=1)]
-      tch *= 2
+    encB_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=6, padding=1)]
+    tch *= 2
+    encB_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=4, padding=1)]
+    tch *= 2
     for i in range(0, 3):
       encB_c += [INSResBlock(tch, tch)]
 
@@ -268,9 +270,9 @@ class G(nn.Module):
     self.decA4 = MisINSResBlock(tch, tch_add)
 
     decA5 = []
-    decA5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)]
+    decA5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=4, padding=1, output_padding=1)]
     tch = tch//2
-    decA5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)]
+    decA5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=4, padding=1, output_padding=1)]
     tch = tch//2
     decA5 += [nn.ConvTranspose2d(tch, output_dim_a, kernel_size=1, stride=1, padding=0)]
     decA5 += [nn.Tanh()]
@@ -282,9 +284,9 @@ class G(nn.Module):
     self.decB3 = MisINSResBlock(tch, tch_add)
     self.decB4 = MisINSResBlock(tch, tch_add)
     decB5 = []
-    decB5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)]
+    decB5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=4, padding=1, output_padding=1)]
     tch = tch//2
-    decB5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)]
+    decB5 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=4, padding=1, output_padding=1)]
     tch = tch//2
     decB5 += [nn.ConvTranspose2d(tch, output_dim_b, kernel_size=1, stride=1, padding=0)]
     decB5 += [nn.Tanh()]
@@ -339,16 +341,18 @@ class G_concat(nn.Module):
     for i in range(0, 3):
       decA1 += [INSResBlock(tch, tch)]
     tch = tch + self.nz
-    decA2 = ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)
+    decA2 = [nn.Upsample(scale_factor=(4,4), mode='bilinear')]
+    decA2 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
     tch = tch//2
     tch = tch + self.nz
-    decA3 = ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)
+    decA3 = [nn.Upsample(scale_factor=(6,6),mode='bilinear')]
+    decA3 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
     tch = tch//2
     tch = tch + self.nz
     decA4 = [nn.ConvTranspose2d(tch, output_dim_a, kernel_size=1, stride=1, padding=0)]+[nn.Tanh()]
     self.decA1 = nn.Sequential(*decA1)
-    self.decA2 = nn.Sequential(*[decA2])
-    self.decA3 = nn.Sequential(*[decA3])
+    self.decA2 = nn.Sequential(*decA2)
+    self.decA3 = nn.Sequential(*decA3)
     self.decA4 = nn.Sequential(*decA4)
 
     tch = 256+self.nz
@@ -356,16 +360,18 @@ class G_concat(nn.Module):
     for i in range(0, 3):
       decB1 += [INSResBlock(tch, tch)]
     tch = tch + self.nz
-    decB2 = ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)
+    decB2 = [nn.Upsample(scale_factor=(4,4), mode='bilinear')]
+    decB2 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
     tch = tch//2
     tch = tch + self.nz
-    decB3 = ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=2, padding=1, output_padding=1)
+    decB3 = [nn.Upsample(scale_factor=(6,6), mode='bilinear')]
+    decB3 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
     tch = tch//2
     tch = tch + self.nz
     decB4 = [nn.ConvTranspose2d(tch, output_dim_b, kernel_size=1, stride=1, padding=0)]+[nn.Tanh()]
     self.decB1 = nn.Sequential(*decB1)
-    self.decB2 = nn.Sequential(*[decB2])
-    self.decB3 = nn.Sequential(*[decB3])
+    self.decB2 = nn.Sequential(*decB2)
+    self.decB3 = nn.Sequential(*decB3)
     self.decB4 = nn.Sequential(*decB4)
 
   def forward_a(self, x, z):
