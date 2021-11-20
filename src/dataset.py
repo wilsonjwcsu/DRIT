@@ -114,6 +114,7 @@ class dataset_pair(data.Dataset):
     #  transforms.append(CenterCrop(opts.crop_size))
     #if not opts.no_flip:
     #  transforms.append(RandomHorizontalFlip())
+    transforms.append(CenterCrop(opts.crop_size))
     transforms.append(ToTensor())
     transforms.append(Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]))
     self.transforms = Compose(transforms)

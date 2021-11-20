@@ -128,6 +128,11 @@ class DRIT(nn.Module):
     self.fake_AA_random = self.gen.forward_a(input_content_forA, input_attr_forA)
     self.fake_BB_random = self.gen.forward_b(input_content_forB, input_attr_forB)
 
+    print(self.real_A_encoded.size())
+    print(self.fake_AA_random.size())
+    print(self.real_B_encoded.size())
+    print(self.fake_BB_random.size())
+
     # for display
     self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), self.fake_AA_random[0:1].detach().cpu(), \
                                     self.real_B_encoded[0:1].detach().cpu(), self.fake_BB_random[0:1].detach().cpu() ), dim=0)
