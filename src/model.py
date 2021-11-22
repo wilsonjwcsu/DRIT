@@ -120,22 +120,23 @@ class DRIT(nn.Module):
     # get random z_a
     self.z_random = self.get_z_random(self.real_A_encoded.size(0), self.nz, 'gauss')
 
-    # random-attr autoencoder
-    input_content_forA = self.z_content_a
-    input_content_forB = self.z_content_b
-    input_attr_forA = self.z_random
-    input_attr_forB = self.z_random
-    self.fake_AA_random = self.gen.forward_a(input_content_forA, input_attr_forA)
-    self.fake_BB_random = self.gen.forward_b(input_content_forB, input_attr_forB)
-
-    print(self.real_A_encoded.size())
-    print(self.fake_AA_random.size())
-    print(self.real_B_encoded.size())
-    print(self.fake_BB_random.size())
+    # random-attr autoencoder (fake_AA_random and fake_BB_random) and cross-coder (fake_A_random and fake_B_random)
+    input_content_forA = torch.cat((self.z_content_a, self.z_content_b),0)
+    input_content_forB = torch.cat((self.z_content_b, self.z_content_a),0)
+    input_attr_forA = torch.cat((self.z_random, self.z_random),0)
+    input_attr_forB = torch.cat((self.z_random, self.z_random),0)
+    output_A = self.gen.forward_a(input_content_forA, input_attr_forA)
+    output_B = self.gen.forward_b(input_content_forB, input_attr_forB)
+    self.fake_AA_random, self.fake_A_random = torch.split(output_A, self.z_content_a.size(0),dim=0)
+    self.fake_BB_random, self.fake_B_random = torch.split(output_B, self.z_content_b.size(0),dim=0)
 
     # for display
-    self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), self.fake_AA_random[0:1].detach().cpu(), \
-                                    self.real_B_encoded[0:1].detach().cpu(), self.fake_BB_random[0:1].detach().cpu() ), dim=0)
+    self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), \
+                                    self.fake_AA_random[0:1].detach().cpu(), \
+                                    self.fake_A_random[0:1].detach().cpu(), \
+                                    self.real_B_encoded[0:1].detach().cpu(), 
+                                    self.fake_BB_random[0:1].detach().cpu(), \
+                                    self.fake_B_random[0:1].detach().cpu() ), dim=0)
 
 
   def forward_content(self):
@@ -253,43 +254,30 @@ class DRIT(nn.Module):
     return checkpoint['ep'], checkpoint['total_it']
 
   def save(self, filename, ep, total_it):
-    if self.lambda_D_content > 0:
-        state = {
-             'disA': self.disA.state_dict(),
-             'disB': self.disB.state_dict(),
-             'enc_c': self.enc_c.state_dict(),
-             'gen': self.gen.state_dict(),
-             'disA_opt': self.disA_opt.state_dict(),
-             'disB_opt': self.disB_opt.state_dict(),
-             'disContent_opt': self.disContent_opt.state_dict(),
-             'enc_c_opt': self.enc_c_opt.state_dict(),
-             'gen_opt': self.gen_opt.state_dict(),
-             'ep': ep,
-             'total_it': total_it
-              }
-    else:
-        state = {
-             'disA': self.disA.state_dict(),
-             'disB': self.disB.state_dict(),
-             'enc_c': self.enc_c.state_dict(),
-             'gen': self.gen.state_dict(),
-             'disA_opt': self.disA_opt.state_dict(),
-             'disB_opt': self.disB_opt.state_dict(),
-             'enc_c_opt': self.enc_c_opt.state_dict(),
-             'gen_opt': self.gen_opt.state_dict(),
-             'ep': ep,
-             'total_it': total_it
-              }
+    state = {
+         'disA': self.disA.state_dict(),
+         'disB': self.disB.state_dict(),
+         'enc_c': self.enc_c.state_dict(),
+         'gen': self.gen.state_dict(),
+         'disA_opt': self.disA_opt.state_dict(),
+         'disB_opt': self.disB_opt.state_dict(),
+         'enc_c_opt': self.enc_c_opt.state_dict(),
+         'gen_opt': self.gen_opt.state_dict(),
+         'ep': ep,
+         'total_it': total_it
+          }
     torch.save(state, filename)
     return
 
   def assemble_outputs(self):
     images_a = self.normalize_image(self.real_A_encoded).detach()
     images_b = self.normalize_image(self.real_B_encoded).detach()
-    images_a4 = self.normalize_image(self.fake_AA_random).detach()
-    images_b4 = self.normalize_image(self.fake_BB_random).detach()
-    row1 = torch.cat((images_a[0:1, ::], images_a4[0:1, ::]),3)
-    row2 = torch.cat((images_b[0:1, ::], images_b4[0:1, ::]),3)
+    images_a2 = self.normalize_image(self.fake_AA_random).detach()
+    images_b2 = self.normalize_image(self.fake_BB_random).detach()
+    images_a3 = self.normalize_image(self.fake_A_random).detach()
+    images_b3 = self.normalize_image(self.fake_B_random).detach()
+    row1 = torch.cat((images_a[0:1, ::], images_a2[0:1, ::], images_a3[0:1, ::]),3)
+    row2 = torch.cat((images_b[0:1, ::], images_b2[0:1, ::], images_b3[0:1, ::]),3)
     return torch.cat((row1,row2),2)
 
   def normalize_image(self, x):
