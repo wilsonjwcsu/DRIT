@@ -205,6 +205,7 @@ class DRIT(nn.Module):
     loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_AA_random, self.real_A_encoded)
     loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_BB_random, self.real_B_encoded)
 
+
     # contrastive paired content embedding loss
     loss_zc_paired = 0
     if self.contrastive_paired_zc:
@@ -222,11 +223,21 @@ class DRIT(nn.Module):
 
     loss_G.backward(retain_graph=True)
 
+    # validation losses (not used for backprop)
+    # paired image translation loss
+    loss_val_L1_paired_A = self.criterionL1(self.real_A_encoded, self.fake_A_random)
+    loss_val_L1_paired_B = self.criterionL1(self.real_B_encoded, self.fake_B_random)
+
     self.gan_loss_a = loss_G_GAN_A.item()
     self.gan_loss_b = loss_G_GAN_B.item()
 
     self.l1_recon_AA_random_loss = loss_G_L1_AA_random
     self.l1_recon_BB_random_loss = loss_G_L1_BB_random
+
+    self.l1_paired_A_val_loss = loss_val_L1_paired_A
+    self.l1_paried_B_val_loss = loss_val_L1_paired_B
+
+    
 
     if self.lambda_paired_zc > 0:
         self.zc_paired_loss = loss_zc_paired.item()
