@@ -51,6 +51,8 @@ class DRIT(nn.Module):
 
     # Setup the loss function for training
     self.criterionL1 = torch.nn.L1Loss()
+    if self.contrastive_paired_zc:
+        self.criterionTriplet = nn.TripletMarginLoss()
 
   def initialize(self):
     self.disA.apply(networks.gaussian_weights_init)
@@ -115,6 +117,9 @@ class DRIT(nn.Module):
 
     # get encoded z_c
     self.z_content_a, self.z_content_b = self.enc_c.forward(self.real_A_encoded, self.real_B_encoded)
+    if self.contrastive_paired_zc:
+        # get extra content embeddings for contrastive training
+        self.z_content_a_random, self.z_content_b_random = self.enc_c.forward(self.real_A_random, self.real_B_random)
     
 
     # get random z_a
@@ -199,9 +204,20 @@ class DRIT(nn.Module):
     loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_AA_random, self.real_A_encoded)
     loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_BB_random, self.real_B_encoded)
 
+    # contrastive paired content embedding loss
+    loss_zc_paired = 0
+    if self.contrastive_paired_zc:
+        loss_zc_paired = self.lambda_paired_zc * ( \
+                            self.criterionTriplet( self.z_content_a, self.z_content_b, self.z_content_a_random ) \
+                            + self.criterionTriplet( self.z_content_a, self.z_content_b, self.z_content_b_random ) \
+                            + self.criterionTriplet( self.z_content_a_random, self.z_content_b_random, self.z_content_a ) \
+                            + self.criterionTriplet( self.z_content_a_random, self.z_content_b_random, self.z_content_b ) )
+
 
     loss_G = loss_G_GAN_A + loss_G_GAN_B + \
-             loss_G_L1_AA_random + loss_G_L1_BB_random
+             loss_G_L1_AA_random + loss_G_L1_BB_random + \
+             loss_zc_paired
+            
 
     loss_G.backward(retain_graph=True)
 
@@ -211,7 +227,12 @@ class DRIT(nn.Module):
     self.l1_recon_AA_random_loss = loss_G_L1_AA_random
     self.l1_recon_BB_random_loss = loss_G_L1_BB_random
 
+    if self.lambda_paired_zc > 0:
+        self.zc_paired_loss = loss_zc_paired.item()
+
     self.G_loss = loss_G.item()
+
+
 
 
   def backward_G_GAN(self, fake, netD=None):
