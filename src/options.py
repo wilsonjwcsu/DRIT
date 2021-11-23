@@ -46,6 +46,7 @@ class TrainOptions():
     self.parser.add_argument('--dis_paired', action='store_true', help='use pix2pix-style paired discriminators')
     self.parser.add_argument('--dis_paired_neg_examples', action='store_true', help='train paired discr with examples of real, mismatched pairs')
     self.parser.add_argument('--contrastive_paired_zc', action='store_true', help='for paired images, use contrastive loss to train content encoder')
+    self.parser.add_argument('--contrastive_margin', type=float, default=1.0, help='triplet loss margin')
 
   def parse(self, options_string=None):
     self.opt = self.parser.parse_args(options_string)

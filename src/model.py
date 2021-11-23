@@ -21,6 +21,7 @@ class DRIT(nn.Module):
     self.dis_paired = opts.dis_paired
     self.dis_paired_neg_examples = opts.dis_paired_neg_examples
     self.contrastive_paired_zc = opts.contrastive_paired_zc
+    self.contrastive_margin = opts.contrastive_margin
 
     # discriminators
     dis_dim_a = opts.input_dim_a
@@ -52,7 +53,7 @@ class DRIT(nn.Module):
     # Setup the loss function for training
     self.criterionL1 = torch.nn.L1Loss()
     if self.contrastive_paired_zc:
-        self.criterionTriplet = nn.TripletMarginLoss()
+        self.criterionTriplet = nn.TripletMarginLoss(margin=self.contrastive_margin)
 
   def initialize(self):
     self.disA.apply(networks.gaussian_weights_init)
