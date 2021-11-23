@@ -53,7 +53,7 @@ class DRIT(nn.Module):
     # Setup the loss function for training
     self.criterionL1 = torch.nn.L1Loss()
     if self.contrastive_paired_zc:
-        self.criterionTriplet = nn.TripletMarginLoss(margin=self.contrastive_margin)
+        self.criterionTriplet = nn.TripletMarginLoss(margin=self.contrastive_margin, p=opts.triplet_distance_norm)
 
   def initialize(self):
     self.disA.apply(networks.gaussian_weights_init)
