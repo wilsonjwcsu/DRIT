@@ -22,6 +22,7 @@ class DRIT(nn.Module):
     self.dis_paired_neg_examples = opts.dis_paired_neg_examples
     self.contrastive_paired_zc = opts.contrastive_paired_zc
     self.contrastive_margin = opts.contrastive_margin
+    self.lambda_paired_zc_L1 = opts.lambda_paired_zc_L1
 
     # discriminators
     dis_dim_a = opts.input_dim_a
@@ -214,11 +215,16 @@ class DRIT(nn.Module):
                             + self.criterionTriplet( self.z_content_a, self.z_content_b, self.z_content_b_random ) \
                             + self.criterionTriplet( self.z_content_a_random, self.z_content_b_random, self.z_content_a ) \
                             + self.criterionTriplet( self.z_content_a_random, self.z_content_b_random, self.z_content_b ) )
+    loss_paired_zc_L1 = 0
+    if self.lambda_paired_zc_L1 > 0:
+        loss_paired_zc_L1 = self.lambda_paired_zc_L1 * \
+                            ( self.criterionL1(self.z_content_a, self.z_content_b) + \
+                              self.criterionL1(self.z_content_a_random, self.z_content_b_random ) )
 
 
     loss_G = loss_G_GAN_A + loss_G_GAN_B + \
              loss_G_L1_AA_random + loss_G_L1_BB_random + \
-             loss_zc_paired
+             loss_zc_paired + loss_paired_zc_L1
             
 
     loss_G.backward(retain_graph=True)
@@ -237,10 +243,11 @@ class DRIT(nn.Module):
     self.l1_paired_A_val_loss = loss_val_L1_paired_A
     self.l1_paried_B_val_loss = loss_val_L1_paired_B
 
-    
-
     if self.lambda_paired_zc > 0:
         self.zc_paired_loss = loss_zc_paired.item()
+
+    if self.lambda_paired_zc_L1 > 0:
+        self.zc_paired_L1_loss = loss_paired_zc_L1
 
     self.G_loss = loss_G.item()
 
