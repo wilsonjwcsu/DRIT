@@ -49,6 +49,7 @@ class TrainOptions():
     self.parser.add_argument('--contrastive_margin', type=float, default=1.0, help='triplet loss margin')
     self.parser.add_argument('--triplet_distance_norm', type=int, default=2, help='triplet loss distance norm')
     self.parser.add_argument('--lambda_paired_zc_L1', type=float, default=0.0, help='paired L1 loss on content encoder')
+    self.parser.add_argument('--lambda_adversarial', type=float, default=1.0, help='adversarial loss weight')
 
   def parse(self, options_string=None):
     self.opt = self.parser.parse_args(options_string)

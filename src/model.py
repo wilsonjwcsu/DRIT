@@ -23,18 +23,19 @@ class DRIT(nn.Module):
     self.contrastive_paired_zc = opts.contrastive_paired_zc
     self.contrastive_margin = opts.contrastive_margin
     self.lambda_paired_zc_L1 = opts.lambda_paired_zc_L1
+    self.lambda_adversarial = opts.lambda_adversarial
 
     # discriminators
     dis_dim_a = opts.input_dim_a
     dis_dim_b = opts.input_dim_b
 
-        
-    if opts.dis_scale > 1:
-      self.disA = networks.MultiScaleDis(dis_dim_a, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disB = networks.MultiScaleDis(dis_dim_b, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-    else:
-      self.disA = networks.Dis(dis_dim_a, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
-      self.disB = networks.Dis(dis_dim_b, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+    if self.lambda_adversarial > 0:    
+        if opts.dis_scale > 1:
+          self.disA = networks.MultiScaleDis(dis_dim_a, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+          self.disB = networks.MultiScaleDis(dis_dim_b, opts.dis_scale, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+        else:
+          self.disA = networks.Dis(dis_dim_a, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
+          self.disB = networks.Dis(dis_dim_b, norm=opts.dis_norm, sn=opts.dis_spectral_norm)
 
     # encoders
     self.enc_c = networks.E_content(opts.input_dim_a, opts.input_dim_b)
@@ -46,8 +47,9 @@ class DRIT(nn.Module):
       self.gen = networks.G(opts.input_dim_a, opts.input_dim_b, nz=self.nz)
 
     # optimizers
-    self.disA_opt = torch.optim.Adam(self.disA.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
-    self.disB_opt = torch.optim.Adam(self.disB.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
+    if self.lambda_adversarial > 0:
+        self.disA_opt = torch.optim.Adam(self.disA.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
+        self.disB_opt = torch.optim.Adam(self.disB.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
     self.enc_c_opt = torch.optim.Adam(self.enc_c.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
     self.gen_opt = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
 
@@ -57,21 +59,24 @@ class DRIT(nn.Module):
         self.criterionTriplet = nn.TripletMarginLoss(margin=self.contrastive_margin, p=opts.triplet_distance_norm)
 
   def initialize(self):
-    self.disA.apply(networks.gaussian_weights_init)
-    self.disB.apply(networks.gaussian_weights_init)
+    if self.lambda_adversarial > 0:
+        self.disA.apply(networks.gaussian_weights_init)
+        self.disB.apply(networks.gaussian_weights_init)
     self.gen.apply(networks.gaussian_weights_init)
     self.enc_c.apply(networks.gaussian_weights_init)
 
   def set_scheduler(self, opts, last_ep=0):
-    self.disA_sch = networks.get_scheduler(self.disA_opt, opts, last_ep)
-    self.disB_sch = networks.get_scheduler(self.disB_opt, opts, last_ep)
+    if self.lambda_adversarial > 0:
+        self.disA_sch = networks.get_scheduler(self.disA_opt, opts, last_ep)
+        self.disB_sch = networks.get_scheduler(self.disB_opt, opts, last_ep)
     self.enc_c_sch = networks.get_scheduler(self.enc_c_opt, opts, last_ep)
     self.gen_sch = networks.get_scheduler(self.gen_opt, opts, last_ep)
 
   def setgpu(self, gpu):
     self.gpu = gpu
-    self.disA.cuda(self.gpu)
-    self.disB.cuda(self.gpu)
+    if self.lambda_adversarial > 0:
+        self.disA.cuda(self.gpu)
+        self.disB.cuda(self.gpu)
     self.enc_c.cuda(self.gpu)
     self.gen.cuda(self.gpu)
 
@@ -159,32 +164,34 @@ class DRIT(nn.Module):
     self.input_B = image_b
     self.forward()
 
-    # update disA
-    self.disA_opt.zero_grad()
-    loss_D1_A = self.backward_D(self.disA, self.real_A_encoded, self.fake_AA_random)
-    self.disA_loss = loss_D1_A.item()
-    self.disA_opt.step()
+    if self.lambda_adversarial > 0:
+        # update disA
+        self.disA_opt.zero_grad()
+        loss_D1_A = self.backward_D(self.disA, self.real_A_encoded, self.fake_AA_random)
+        self.disA_loss = loss_D1_A.item()
+        self.disA_opt.step()
 
-    # update disB
-    self.disB_opt.zero_grad()
-    loss_D1_B = self.backward_D(self.disB, self.real_B_encoded, self.fake_BB_random)
-    self.disB_loss = loss_D1_B.item()
-    self.disB_opt.step()
+        # update disB
+        self.disB_opt.zero_grad()
+        loss_D1_B = self.backward_D(self.disB, self.real_B_encoded, self.fake_BB_random)
+        self.disB_loss = loss_D1_B.item()
+        self.disB_opt.step()
 
   def backward_D(self, netD, real, fake):
-    pred_fake = netD.forward(fake.detach())
-    pred_real = netD.forward(real)
-    loss_D = 0
-    for it, (out_a, out_b) in enumerate(zip(pred_fake, pred_real)):
-      out_fake = nn.functional.sigmoid(out_a)
-      out_real = nn.functional.sigmoid(out_b)
-      all0 = torch.zeros_like(out_fake).cuda(self.gpu)
-      all1 = torch.ones_like(out_real).cuda(self.gpu)
-      ad_fake_loss = nn.functional.binary_cross_entropy(out_fake, all0)
-      ad_true_loss = nn.functional.binary_cross_entropy(out_real, all1)
-      loss_D += ad_true_loss + ad_fake_loss
-    loss_D.backward()
-    return loss_D
+    if self.lambda_adversarial > 0:
+        pred_fake = netD.forward(fake.detach())
+        pred_real = netD.forward(real)
+        loss_D = 0
+        for it, (out_a, out_b) in enumerate(zip(pred_fake, pred_real)):
+          out_fake = nn.functional.sigmoid(out_a)
+          out_real = nn.functional.sigmoid(out_b)
+          all0 = torch.zeros_like(out_fake).cuda(self.gpu)
+          all1 = torch.ones_like(out_real).cuda(self.gpu)
+          ad_fake_loss = nn.functional.binary_cross_entropy(out_fake, all0)
+          ad_true_loss = nn.functional.binary_cross_entropy(out_real, all1)
+          loss_D += ad_true_loss + ad_fake_loss
+        loss_D.backward()
+        return loss_D
 
   def update_EG(self):
     # update G, Ec
@@ -198,8 +205,11 @@ class DRIT(nn.Module):
   def backward_EG(self):
 
     # Ladv for generator
-    loss_G_GAN_A = self.backward_G_GAN(self.fake_AA_random, self.disA)
-    loss_G_GAN_B = self.backward_G_GAN(self.fake_BB_random, self.disB)
+    loss_G_GAN_A = 0
+    loss_G_GAN_B = 0
+    if self.lambda_adversarial > 0:
+        loss_G_GAN_A = self.lambda_adversarial*self.backward_G_GAN(self.fake_AA_random, self.disA)
+        loss_G_GAN_B = self.lambda_adversarial*self.backward_G_GAN(self.fake_BB_random, self.disB)
 
 
     # random-attribute autoencoder reconstruction loss
@@ -234,8 +244,9 @@ class DRIT(nn.Module):
     loss_val_L1_paired_A = self.criterionL1(self.real_A_encoded, self.fake_A_random)
     loss_val_L1_paired_B = self.criterionL1(self.real_B_encoded, self.fake_B_random)
 
-    self.gan_loss_a = loss_G_GAN_A.item()
-    self.gan_loss_b = loss_G_GAN_B.item()
+    if self.lambda_adversarial > 0:
+        self.gan_loss_a = loss_G_GAN_A.item()
+        self.gan_loss_b = loss_G_GAN_B.item()
 
     self.l1_recon_AA_random_loss = loss_G_L1_AA_random
     self.l1_recon_BB_random_loss = loss_G_L1_BB_random
@@ -266,8 +277,9 @@ class DRIT(nn.Module):
 
 
   def update_lr(self):
-    self.disA_sch.step()
-    self.disB_sch.step()
+    if self.lambda_adversarial > 0:
+        self.disA_sch.step()
+        self.disB_sch.step()
     self.enc_c_sch.step()
     self.gen_sch.step()
 
@@ -280,32 +292,44 @@ class DRIT(nn.Module):
     checkpoint = torch.load(model_dir)
     # weight
     if train:
-      self.disA.load_state_dict(checkpoint['disA'])
-      self.disB.load_state_dict(checkpoint['disB'])
+        if self.lambda_adversarial > 0:
+          self.disA.load_state_dict(checkpoint['disA'])
+          self.disB.load_state_dict(checkpoint['disB'])
     self.enc_c.load_state_dict(checkpoint['enc_c'])
     self.gen.load_state_dict(checkpoint['gen'])
     # optimizer
     if train:
-      self.disA_opt.load_state_dict(checkpoint['disA_opt'])
-      self.disB_opt.load_state_dict(checkpoint['disB_opt'])
+      if self.lambda_adversarial > 0:
+          self.disA_opt.load_state_dict(checkpoint['disA_opt'])
+          self.disB_opt.load_state_dict(checkpoint['disB_opt'])
       self.enc_c_opt.load_state_dict(checkpoint['enc_c_opt'])
       self.enc_a_opt.load_state_dict(checkpoint['enc_a_opt'])
       self.gen_opt.load_state_dict(checkpoint['gen_opt'])
     return checkpoint['ep'], checkpoint['total_it']
 
   def save(self, filename, ep, total_it):
-    state = {
-         'disA': self.disA.state_dict(),
-         'disB': self.disB.state_dict(),
-         'enc_c': self.enc_c.state_dict(),
-         'gen': self.gen.state_dict(),
-         'disA_opt': self.disA_opt.state_dict(),
-         'disB_opt': self.disB_opt.state_dict(),
-         'enc_c_opt': self.enc_c_opt.state_dict(),
-         'gen_opt': self.gen_opt.state_dict(),
-         'ep': ep,
-         'total_it': total_it
-          }
+    if self.lambda_adversarial > 0:
+        state = {
+             'disA': self.disA.state_dict(),
+             'disB': self.disB.state_dict(),
+             'enc_c': self.enc_c.state_dict(),
+             'gen': self.gen.state_dict(),
+             'disA_opt': self.disA_opt.state_dict(),
+             'disB_opt': self.disB_opt.state_dict(),
+             'enc_c_opt': self.enc_c_opt.state_dict(),
+             'gen_opt': self.gen_opt.state_dict(),
+             'ep': ep,
+             'total_it': total_it
+              }
+    else:
+        state = {
+             'enc_c': self.enc_c.state_dict(),
+             'gen': self.gen.state_dict(),
+             'enc_c_opt': self.enc_c_opt.state_dict(),
+             'gen_opt': self.gen_opt.state_dict(),
+             'ep': ep,
+             'total_it': total_it
+              }
     torch.save(state, filename)
     return
 
