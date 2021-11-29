@@ -15,6 +15,7 @@ class DRIT(nn.Module):
     self.lambda_paired_L1 = opts.lambda_paired_L1
     self.lambda_paired_L1_random = opts.lambda_paired_L1_random
     self.lambda_L1_random_autoencoder = opts.lambda_L1_random_autoencoder
+    self.lambda_perceptual_random_autoencoder = opts.lambda_perceptual_random_autoencoder
     self.lambda_paired_zc = opts.lambda_paired_zc
     self.lambda_paired_embedding = opts.lambda_paired_embedding
     self.lambda_D_content = opts.lambda_D_content
@@ -142,6 +143,9 @@ class DRIT(nn.Module):
     self.fake_AA_random, self.fake_A_random = torch.split(output_A, self.z_content_a.size(0),dim=0)
     self.fake_BB_random, self.fake_B_random = torch.split(output_B, self.z_content_b.size(0),dim=0)
 
+    if self.lambda_perceptual_random_autoencoder > 0:
+        self.z_content_a_autoenc, self.z_content_b_autoenc = self.enc_c.forward(self.fake_AA_random, self.fake_BB_random)
+
     # for display
     self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), \
                                     self.fake_AA_random[0:1].detach().cpu(), \
@@ -200,6 +204,26 @@ class DRIT(nn.Module):
     self.backward_EG()
     self.enc_c_opt.step()
     self.gen_opt.step()
+
+    if self.lambda_perceptual_random_autoencoder > 0:
+        self.enc_c_opt.zero_grad()
+        self.gen_opt.zero_grad()
+        self.forward()
+        self.backward_G_only()
+        self.gen_opt.step()
+        
+  def backward_G_only(self):
+    loss_AA_perceptual = self.lambda_perceptual_random_autoencoder * \
+                        self.criterionL1(self.z_content_a, self.z_content_a_autoenc)
+    loss_BB_perceptual = self.lambda_perceptual_random_autoencoder * \
+                        self.criterionL1(self.z_content_b, self.z_content_b_autoenc)
+
+    loss_perceptual = loss_AA_perceptual + loss_BB_perceptual
+    loss_perceptual.backward(retain_graph=True)
+
+    self.perceptual_AA_loss = loss_AA_perceptual
+    self.perceptual_BB_loss = loss_BB_perceptual
+
 
 
   def backward_EG(self):
