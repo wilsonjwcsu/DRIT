@@ -146,6 +146,10 @@ class DRIT(nn.Module):
     if self.lambda_perceptual_random_autoencoder > 0:
         self.z_content_a_autoenc, self.z_content_b_autoenc = self.enc_c.forward(self.fake_AA_random, self.fake_BB_random)
 
+    # zc codes for autoencoder and cross-translation
+    self.z_content_a_autoenc, self.z_content_b_autoenc = self.enc_c.forward(self.fake_AA_random, self.fake_BB_random)
+    self.z_content_a_cross, self.z_content_b_cross     = self.enc_c.forward(self.fake_A_random,  self.fake_B_random)
+
     # for display
     self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), \
                                     self.fake_AA_random[0:1].detach().cpu(), \
@@ -245,10 +249,10 @@ class DRIT(nn.Module):
     loss_zc_paired = 0
     if self.contrastive_paired_zc:
         loss_zc_paired = self.lambda_paired_zc * ( \
-                            self.criterionTriplet( self.z_content_a, self.z_content_b, self.z_content_a_random ) \
+                            self.criterionTriplet( self.z_content_a, self.z_content_a_autoenc, self.z_content_a_cross ) \
                             + self.criterionTriplet( self.z_content_a, self.z_content_b, self.z_content_b_random ) \
-                            + self.criterionTriplet( self.z_content_a_random, self.z_content_b_random, self.z_content_a ) \
-                            + self.criterionTriplet( self.z_content_a_random, self.z_content_b_random, self.z_content_b ) )
+                            + self.criterionTriplet( self.z_content_b, self.z_content_b_autoenc, self.z_content_b_cross ) \
+                            + self.criterionTriplet( self.z_content_b, self.z_content_a, self.z_content_a_random ) )
     loss_paired_zc_L1 = 0
     if self.lambda_paired_zc_L1 > 0:
         loss_paired_zc_L1 = self.lambda_paired_zc_L1 * \
