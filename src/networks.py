@@ -116,7 +116,7 @@ class E_content(nn.Module):
     enc_share = []
     for i in range(0, 1):
       enc_share += [INSResBlock(tch, tch)]
-      enc_share += [GaussianNoiseLayer()]
+      #enc_share += [GaussianNoiseLayer()]
       self.conv_share = nn.Sequential(*enc_share)
 
     self.convA = nn.Sequential(*encA_c)
