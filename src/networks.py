@@ -90,53 +90,56 @@ class Dis(nn.Module):
 ####################################################################
 #---------------------------- Encoders -----------------------------
 ####################################################################
+
+def get_enc_histoCAE(nc_in):
+    net = [
+          nn.Conv2d(nc_in,16,kernel_size=3,stride=1,padding=1), # layer 1, 256x256x16
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(16),                                   # layer 2, 256x256x16
+          nn.Conv2d(16,16,kernel_size=3,stride=2,padding=1),    # layer 3, 128x128x16
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(16),                                   # layer 4, 128x128x16
+          nn.Conv2d(16,32,kernel_size=3,stride=1,padding=1),    # layer 5, 128x128x32
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(32),                                   # layer 6, 128x128x32
+          nn.Conv2d(32,32,kernel_size=3,stride=2,padding=1),    # layer 7, 64x64x32
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(32),                                   # layer 8, 64x64x32
+          nn.Conv2d(32,64,kernel_size=3,stride=1,padding=1),    # layer 9, 64x64x64
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(64),                                   # layer 10, 64x64x64
+          nn.Conv2d(64,64,kernel_size=3,stride=2,padding=1),    # layer 11, 32x32x64
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(64),                                   # layer 12, 32x32x64
+          nn.Conv2d(64,64,kernel_size=3,stride=1,padding=1),    # layer 13, 32x32x64
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(64),                                   # layer 14, 32x32x64
+          nn.Conv2d(64,64,kernel_size=3,stride=2,padding=1),    # layer 15, 16x16x64
+          nn.LeakyReLU(),
+          nn.BatchNorm2d(64)                                    # layer 16, 16x16x64
+          ]
+
+    return nn.Sequential(*net)
+
 class E_content(nn.Module):
+# modified 20211223 JWW to use a HistoCAE architecture
   def __init__(self, input_dim_a, input_dim_b):
     super(E_content, self).__init__()
-    encA_c = []
-    tch = 64
-    encA_c += [LeakyReLUConv2d(input_dim_a, tch, kernel_size=7, stride=1, padding=3)]
-    encA_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=6, padding=1)]
-    tch *= 2
-    encA_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=4, padding=1)]
-    tch *= 2
-    for i in range(0, 3):
-      encA_c += [INSResBlock(tch, tch)]
 
-    encB_c = []
-    tch = 64
-    encB_c += [LeakyReLUConv2d(input_dim_b, tch, kernel_size=7, stride=1, padding=3)]
-    encB_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=6, padding=1)]
-    tch *= 2
-    encB_c += [ReLUINSConv2d(tch, tch * 2, kernel_size=3, stride=4, padding=1)]
-    tch *= 2
-    for i in range(0, 3):
-      encB_c += [INSResBlock(tch, tch)]
-
-    enc_share = []
-    for i in range(0, 1):
-      enc_share += [INSResBlock(tch, tch)]
-      #enc_share += [GaussianNoiseLayer()]
-      self.conv_share = nn.Sequential(*enc_share)
-
-    self.convA = nn.Sequential(*encA_c)
-    self.convB = nn.Sequential(*encB_c)
+    self.convA = get_enc_histoCAE(input_dim_a)
+    self.convB = get_enc_histoCAE(input_dim_b)
 
   def forward(self, xa, xb):
     outputA = self.convA(xa)
     outputB = self.convB(xb)
-    outputA = self.conv_share(outputA)
-    outputB = self.conv_share(outputB)
     return outputA, outputB
 
   def forward_a(self, xa):
     outputA = self.convA(xa)
-    outputA = self.conv_share(outputA)
     return outputA
 
   def forward_b(self, xb):
     outputB = self.convB(xb)
-    outputB = self.conv_share(outputB)
     return outputB
 
 class E_attr(nn.Module):
@@ -328,83 +331,58 @@ class G(nn.Module):
     out = self.decB5(out4)
     return out
 
+def get_dec_histoCAE(nc_out):
+    net = [
+        nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 17, 16x16x64
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(64),                                 # layer 18, 16x16x64
+        nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 19, 16x16x64
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(64),                                 # layer 20, 16x16x64
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 21, 32x32x64
+        nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 22, 32x32x64
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(64),                                 # layer 23, 32x32x64
+        nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 24, 32x32x64
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(64),                                 # layer 25, 32x32x64
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 26, 64x64x64
+        nn.Conv2d(64,32,kernel_size=3,padding=1),           # layer 27, 64x64x32
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(32),                                 # layer 28, 64x64x32
+        nn.Conv2d(32,32,kernel_size=3,padding=1),           # layer 29, 64x64x32
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(32),                                 # layer 30, 64x64x32
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 31, 128x128x32
+        nn.Conv2d(32,16,kernel_size=3,padding=1),           # layer 32, 128x128x16
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(16),                                 # layer 33, 128x128x16
+        nn.Conv2d(16,16,kernel_size=3,padding=1),           # layer 34, 128x128x16
+        nn.LeakyReLU(),
+        nn.BatchNorm2d(16),                                 # layer 35, 128x128x16
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 36, 256x256x16
+        nn.Conv2d(16,nc_out,kernel_size=3,padding=1),       # layer 37, 256x256x3
+        nn.Tanh()                                           # HistoCAE used Sigmoid, we're using Tanh
+        ]
+    
+    return nn.Sequential(*net)
+    
+
 class G_concat(nn.Module):
   def __init__(self, output_dim_a, output_dim_b, nz):
     super(G_concat, self).__init__()
     self.nz = nz
-    tch = 256
-    dec_share = []
-    dec_share += [INSResBlock(tch, tch)]
-    self.dec_share = nn.Sequential(*dec_share)
-    tch = 256+self.nz
-    decA1 = []
-    for i in range(0, 3):
-      decA1 += [INSResBlock(tch, tch)]
-    tch = tch + self.nz
-    decA2 = [nn.Upsample(scale_factor=(4,4), mode='bilinear')]
-    decA2 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
-    tch = tch//2
-    tch = tch + self.nz
-    decA3 = [nn.Upsample(scale_factor=(6,6),mode='bilinear')]
-    decA3 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
-    tch = tch//2
-    tch = tch + self.nz
-    decA4 = [nn.ConvTranspose2d(tch, output_dim_a, kernel_size=1, stride=1, padding=0)]+[nn.Tanh()]
-    self.decA1 = nn.Sequential(*decA1)
-    self.decA2 = nn.Sequential(*decA2)
-    self.decA3 = nn.Sequential(*decA3)
-    self.decA4 = nn.Sequential(*decA4)
 
-    tch = 256+self.nz
-    decB1 = []
-    for i in range(0, 3):
-      decB1 += [INSResBlock(tch, tch)]
-    tch = tch + self.nz
-    decB2 = [nn.Upsample(scale_factor=(4,4), mode='bilinear')]
-    decB2 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
-    tch = tch//2
-    tch = tch + self.nz
-    decB3 = [nn.Upsample(scale_factor=(6,6), mode='bilinear')]
-    decB3 += [ReLUINSConvTranspose2d(tch, tch//2, kernel_size=3, stride=1, padding=1, output_padding=0)]
-    tch = tch//2
-    tch = tch + self.nz
-    decB4 = [nn.ConvTranspose2d(tch, output_dim_b, kernel_size=1, stride=1, padding=0)]+[nn.Tanh()]
-    self.decB1 = nn.Sequential(*decB1)
-    self.decB2 = nn.Sequential(*decB2)
-    self.decB3 = nn.Sequential(*decB3)
-    self.decB4 = nn.Sequential(*decB4)
+    self.decA = get_dec_histoCAE(output_dim_a)
+    self.decB = get_dec_histoCAE(output_dim_b)
 
   def forward_a(self, x, z):
-    out0 = self.dec_share(x)
-    z_img = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), x.size(2), x.size(3))
-    x_and_z = torch.cat([out0, z_img], 1)
-    out1 = self.decA1(x_and_z)
-    z_img2 = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), out1.size(2), out1.size(3))
-    x_and_z2 = torch.cat([out1, z_img2], 1)
-    out2 = self.decA2(x_and_z2)
-    z_img3 = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), out2.size(2), out2.size(3))
-    x_and_z3 = torch.cat([out2, z_img3], 1)
-    out3 = self.decA3(x_and_z3)
-    z_img4 = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), out3.size(2), out3.size(3))
-    x_and_z4 = torch.cat([out3, z_img4], 1)
-    out4 = self.decA4(x_and_z4)
-    return out4
+    out = self.decA(x);
+    return out
 
   def forward_b(self, x, z):
-    out0 = self.dec_share(x)
-    z_img = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), x.size(2), x.size(3))
-    x_and_z = torch.cat([out0,  z_img], 1)
-    out1 = self.decB1(x_and_z)
-    z_img2 = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), out1.size(2), out1.size(3))
-    x_and_z2 = torch.cat([out1, z_img2], 1)
-    out2 = self.decB2(x_and_z2)
-    z_img3 = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), out2.size(2), out2.size(3))
-    x_and_z3 = torch.cat([out2, z_img3], 1)
-    out3 = self.decB3(x_and_z3)
-    z_img4 = z.view(z.size(0), z.size(1), 1, 1).expand(z.size(0), z.size(1), out3.size(2), out3.size(3))
-    x_and_z4 = torch.cat([out3, z_img4], 1)
-    out4 = self.decB4(x_and_z4)
-    return out4
+    out = self.decB(x);
+    return out
 
 ####################################################################
 #------------------------- Basic Functions -------------------------
