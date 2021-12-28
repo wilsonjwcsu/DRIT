@@ -94,28 +94,28 @@ class Dis(nn.Module):
 def get_enc_histoCAE(nc_in):
     net = [
           nn.Conv2d(nc_in,16,kernel_size=3,stride=1,padding=1), # layer 1, 256x256x16
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(16),                                   # layer 2, 256x256x16
           nn.Conv2d(16,16,kernel_size=3,stride=2,padding=1),    # layer 3, 128x128x16
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(16),                                   # layer 4, 128x128x16
           nn.Conv2d(16,32,kernel_size=3,stride=1,padding=1),    # layer 5, 128x128x32
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(32),                                   # layer 6, 128x128x32
           nn.Conv2d(32,32,kernel_size=3,stride=2,padding=1),    # layer 7, 64x64x32
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(32),                                   # layer 8, 64x64x32
           nn.Conv2d(32,64,kernel_size=3,stride=1,padding=1),    # layer 9, 64x64x64
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(64),                                   # layer 10, 64x64x64
           nn.Conv2d(64,64,kernel_size=3,stride=2,padding=1),    # layer 11, 32x32x64
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(64),                                   # layer 12, 32x32x64
           nn.Conv2d(64,64,kernel_size=3,stride=1,padding=1),    # layer 13, 32x32x64
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(64),                                   # layer 14, 32x32x64
           nn.Conv2d(64,64,kernel_size=3,stride=2,padding=1),    # layer 15, 16x16x64
-          nn.LeakyReLU(),
+          nn.ELU(),
           nn.BatchNorm2d(64)                                    # layer 16, 16x16x64
           ]
 
@@ -334,31 +334,31 @@ class G(nn.Module):
 def get_dec_histoCAE(nc_out):
     net = [
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 17, 16x16x64
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(64),                                 # layer 18, 16x16x64
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 19, 16x16x64
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(64),                                 # layer 20, 16x16x64
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 21, 32x32x64
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 22, 32x32x64
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(64),                                 # layer 23, 32x32x64
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 24, 32x32x64
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(64),                                 # layer 25, 32x32x64
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 26, 64x64x64
         nn.Conv2d(64,32,kernel_size=3,padding=1),           # layer 27, 64x64x32
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(32),                                 # layer 28, 64x64x32
         nn.Conv2d(32,32,kernel_size=3,padding=1),           # layer 29, 64x64x32
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(32),                                 # layer 30, 64x64x32
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 31, 128x128x32
         nn.Conv2d(32,16,kernel_size=3,padding=1),           # layer 32, 128x128x16
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(16),                                 # layer 33, 128x128x16
         nn.Conv2d(16,16,kernel_size=3,padding=1),           # layer 34, 128x128x16
-        nn.LeakyReLU(),
+        nn.ELU(),
         nn.BatchNorm2d(16),                                 # layer 35, 128x128x16
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 36, 256x256x16
         nn.Conv2d(16,nc_out,kernel_size=3,padding=1),       # layer 37, 256x256x3
