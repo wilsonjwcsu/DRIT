@@ -54,7 +54,7 @@ def main():
       if not opts.no_display_img:
         saver.write_display(total_it, model)
 
-      print('total_it: %d (ep %d, it %d), lr %08f' % (total_it, ep, it, model.gen_opt.param_groups[0]['lr']))
+      print('total_it: %d (ep %d, it %d), lr %08f' % (total_it, ep, it, model.gen_A_opt.param_groups[0]['lr']))
       total_it += 1
       if total_it >= max_it:
         saver.write_img(ep, model)
