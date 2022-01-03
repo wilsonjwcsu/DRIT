@@ -121,13 +121,43 @@ def get_enc_histoCAE(nc_in):
 
     return nn.Sequential(*net)
 
+def get_enc_histoCAE_wide(nc_in, w):
+    net = [
+          nn.Conv2d(nc_in,w,kernel_size=3,stride=1,padding=1), # layer 1, 256x256xw
+          nn.ELU(),
+          nn.BatchNorm2d(w),                                   # layer 2, 256x256xw
+          nn.Conv2d(w,w,kernel_size=3,stride=2,padding=1),     # layer 3, 128x128xw
+          nn.ELU(),
+          nn.BatchNorm2d(w),                                   # layer 4, 128x128xw
+          nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1),     # layer 5, 128x128xw
+          nn.ELU(),
+          nn.BatchNorm2d(w),                                   # layer 6, 128x128xw
+          nn.Conv2d(w,w,kernel_size=3,stride=2,padding=1),     # layer 7, 64x64xw
+          nn.ELU(),
+          nn.BatchNorm2d(w),                                   # layer 8, 64x64xw
+          nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1),     # layer 9, 64x64xw
+          nn.ELU(),
+          nn.BatchNorm2d(w),                                   # layer 10, 64x64xw
+          nn.Conv2d(w,w,kernel_size=3,stride=2,padding=1),     # layer 11, 32x32xw
+          nn.ELU(),
+          nn.BatchNorm2d(w),                                   # layer 12, 32x32xw
+          nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1),     # layer 13, 32x32xw
+          nn.ELU(),
+          nn.BatchNorm2d(w),                                   # layer 14, 32x32xw
+          nn.Conv2d(w,64,kernel_size=3,stride=2,padding=1),    # layer 15, 16x16x64
+          nn.ELU(),
+          nn.BatchNorm2d(64)                                   # layer 16, 16x16x64
+          ]
+
+    return nn.Sequential(*net)
+
 class E_content(nn.Module):
 # modified 20211223 JWW to use a HistoCAE architecture
   def __init__(self, input_dim_a, input_dim_b):
     super(E_content, self).__init__()
 
     self.convA = get_enc_histoCAE(input_dim_a)
-    self.convB = get_enc_histoCAE(input_dim_b)
+    self.convB = get_enc_histoCAE_wide(input_dim_b,256)
 
   def forward(self, xa, xb):
     outputA = self.convA(xa)
