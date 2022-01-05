@@ -206,35 +206,35 @@ class DRIT(nn.Module):
         return loss_D
 
   def update_EG(self):
-    # update full autoencoder A
-    self.enc_c_A_opt.zero_grad()
-    self.gen_A_opt.zero_grad()
-
-    loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_AA_random, self.real_A_encoded)
-    loss_G_L1_AA_random.backward()
-
-    self.enc_c_A_opt.step()
-    self.gen_A_opt.step()
-
-
-    # update encoder B
+    # update autoencoder B end-to-end
     self.enc_c_B_opt.zero_grad()
+    self.gen_B_opt.zero_grad()
+
+    loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_BB_random, self.real_B_encoded)
+    loss_G_L1_BB_random.backward()
+
+    self.enc_c_B_opt.step()
+    self.gen_B_opt.step()
+
+
+    # update encoder A
+    self.enc_c_A_opt.zero_grad()
     self.forward()
 
     loss_paired_zc_L1 = self.lambda_paired_zc_L1 * self.criterionL1(self.z_content_a, self.z_content_b)
     loss_paired_zc_L1.backward()
 
-    self.enc_c_B_opt.step()
+    self.enc_c_A_opt.step()
 
 
-    # update decoder B
-    self.gen_B_opt.zero_grad()
+    # update decoder A
+    self.gen_A_opt.zero_grad()
     self.forward()
 
-    loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_BB_random, self.real_B_encoded)
-    loss_G_L1_BB_random.backward()
+    loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_AA_random, self.real_A_encoded)
+    loss_G_L1_AA_random.backward()
 
-    self.gen_B_opt.step() 
+    self.gen_A_opt.step() 
 
 
     # validation losses (not used for backprop)

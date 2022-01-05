@@ -156,8 +156,8 @@ class E_content(nn.Module):
   def __init__(self, input_dim_a, input_dim_b):
     super(E_content, self).__init__()
 
-    self.convA = get_enc_histoCAE(input_dim_a)
-    self.convB = get_enc_histoCAE_wide(input_dim_b,256)
+    self.convB = get_enc_histoCAE(input_dim_a)
+    self.convA = get_enc_histoCAE_wide(input_dim_b,256)
 
   def forward(self, xa, xb):
     outputA = self.convA(xa)
