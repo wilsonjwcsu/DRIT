@@ -94,25 +94,25 @@ class Dis(nn.Module):
 def get_enc_histoCAE(nc_in):
     net = [
           nn.Conv2d(nc_in,16,kernel_size=3,stride=1,padding=1), # layer 1, 256x256x16
-          nn.ELU(),
+          nn.LeakyReLU(),
           nn.InstanceNorm2d(16,affine=True),                                   # layer 2, 256x256x16
           nn.Conv2d(16,16,kernel_size=3,stride=2,padding=1),    # layer 3, 128x128x16
-          nn.ELU(),
+          nn.LeakyReLU(),
           nn.InstanceNorm2d(16,affine=True),                                   # layer 4, 128x128x16
           nn.Conv2d(16,32,kernel_size=3,stride=1,padding=1),    # layer 5, 128x128x32
-          nn.ELU(),
+          nn.LeakyReLU(),
           nn.InstanceNorm2d(32,affine=True),                                   # layer 6, 128x128x32
           nn.Conv2d(32,32,kernel_size=3,stride=2,padding=1),    # layer 7, 64x64x32
-          nn.ELU(),
+          nn.LeakyReLU(),
           nn.InstanceNorm2d(32,affine=True),                                   # layer 8, 64x64x32
           nn.Conv2d(32,64,kernel_size=3,stride=1,padding=1),    # layer 9, 64x64x64
-          nn.ELU(),
+          nn.LeakyReLU(),
           nn.InstanceNorm2d(64,affine=True),                                   # layer 10, 64x64x64
           nn.Conv2d(64,64,kernel_size=3,stride=2,padding=1),    # layer 11, 32x32x64
-          nn.ELU(),
+          nn.LeakyReLU(),
           nn.InstanceNorm2d(64,affine=True),                                   # layer 12, 32x32x64
           nn.Conv2d(64,64,kernel_size=3,stride=1,padding=1),    # layer 13, 32x32x64
-          nn.ELU(),
+          nn.LeakyReLU(),
           nn.InstanceNorm2d(64,affine=True),                                   # layer 14, 32x32x64
           nn.Conv2d(64,64,kernel_size=3,stride=2,padding=1),    # layer 15, 16x16x64
           nn.Tanh(),
@@ -157,7 +157,7 @@ class E_content(nn.Module):
     super(E_content, self).__init__()
 
     self.convB = get_enc_histoCAE(input_dim_a)
-    self.convA = get_enc_histoCAE_wide(input_dim_b,256)
+    self.convA = get_enc_histoCAE(input_dim_b)
 
   def forward(self, xa, xb):
     outputA = self.convA(xa)
@@ -364,31 +364,31 @@ class G(nn.Module):
 def get_dec_histoCAE(nc_out):
     net = [
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 17, 16x16x64
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(64,affine=True),                                 # layer 18, 16x16x64
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 19, 16x16x64
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(64,affine=True),                                 # layer 20, 16x16x64
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 21, 32x32x64
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 22, 32x32x64
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(64,affine=True),                                 # layer 23, 32x32x64
         nn.Conv2d(64,64,kernel_size=3,padding=1),           # layer 24, 32x32x64
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(64,affine=True),                                 # layer 25, 32x32x64
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 26, 64x64x64
         nn.Conv2d(64,32,kernel_size=3,padding=1),           # layer 27, 64x64x32
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(32,affine=True),                                 # layer 28, 64x64x32
         nn.Conv2d(32,32,kernel_size=3,padding=1),           # layer 29, 64x64x32
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(32,affine=True),                                 # layer 30, 64x64x32
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 31, 128x128x32
         nn.Conv2d(32,16,kernel_size=3,padding=1),           # layer 32, 128x128x16
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(16,affine=True),                                 # layer 33, 128x128x16
         nn.Conv2d(16,16,kernel_size=3,padding=1),           # layer 34, 128x128x16
-        nn.ELU(),
+        nn.LeakyReLU(),
         nn.InstanceNorm2d(16,affine=True),                                 # layer 35, 128x128x16
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 36, 256x256x16
         nn.Conv2d(16,nc_out,kernel_size=3,padding=1),       # layer 37, 256x256x3
