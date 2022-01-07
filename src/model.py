@@ -51,10 +51,8 @@ class DRIT(nn.Module):
     if self.lambda_adversarial > 0:
         self.disA_opt = torch.optim.Adam(self.disA.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
         self.disB_opt = torch.optim.Adam(self.disB.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
-    self.enc_c_A_opt = torch.optim.Adam(self.enc_c.convA.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
-    self.enc_c_B_opt = torch.optim.Adam(self.enc_c.convB.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
-    self.gen_A_opt = torch.optim.Adam(self.gen.decA.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
-    self.gen_B_opt = torch.optim.Adam(self.gen.decB.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
+    self.enc_c_opt = torch.optim.Adam(self.enc_c.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
+    self.gen_opt = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(0.5, 0.999), weight_decay=0.0001)
 
     # Setup the loss function for training
     self.criterionL1 = torch.nn.L1Loss()
@@ -72,10 +70,8 @@ class DRIT(nn.Module):
     if self.lambda_adversarial > 0:
         self.disA_sch = networks.get_scheduler(self.disA_opt, opts, last_ep)
         self.disB_sch = networks.get_scheduler(self.disB_opt, opts, last_ep)
-    self.enc_c_A_sch = networks.get_scheduler(self.enc_c_A_opt, opts, last_ep)
-    self.enc_c_B_sch = networks.get_scheduler(self.enc_c_B_opt, opts, last_ep)
-    self.gen_A_sch = networks.get_scheduler(self.gen_A_opt, opts, last_ep)
-    self.gen_B_sch = networks.get_scheduler(self.gen_B_opt, opts, last_ep)
+    self.enc_c_sch = networks.get_scheduler(self.enc_c_opt, opts, last_ep)
+    self.gen_sch = networks.get_scheduler(self.gen_opt, opts, last_ep)
 
   def setgpu(self, gpu):
     self.gpu = gpu
@@ -127,40 +123,23 @@ class DRIT(nn.Module):
     self.real_B_encoded = real_B[0:half_size]
     self.real_B_random = real_B[half_size:]
 
-    # get encoded z_c
-    self.z_content_a, self.z_content_b = self.enc_c.forward(self.real_A_encoded, self.real_B_encoded)
-    if self.contrastive_paired_zc:
-        # get extra content embeddings for contrastive training
-        self.z_content_a_random, self.z_content_b_random = self.enc_c.forward(self.real_A_random, self.real_B_random)
-    
+    # joint-modality images
+    self.joint_real = torch.cat((self.real_A_encoded, self.real_B_encoded),dim=1)
 
-    # get random z_a
-    self.z_random = self.get_z_random(self.real_A_encoded.size(0), self.nz, 'gauss')
+    # get encoded z_c
+    self.z_content = self.enc_c.forward(self.joint_real)
 
     # random-attr autoencoder (fake_AA_random and fake_BB_random) and cross-coder (fake_A_random and fake_B_random)
-    input_content_forA = torch.cat((self.z_content_a, self.z_content_b),0)
-    input_content_forB = torch.cat((self.z_content_b, self.z_content_a),0)
-    input_attr_forA = torch.cat((self.z_random, self.z_random),0)
-    input_attr_forB = torch.cat((self.z_random, self.z_random),0)
-    output_A = self.gen.forward_a(input_content_forA, input_attr_forA)
-    output_B = self.gen.forward_b(input_content_forB, input_attr_forB)
-    self.fake_AA_random, self.fake_A_random = torch.split(output_A, self.z_content_a.size(0),dim=0)
-    self.fake_BB_random, self.fake_B_random = torch.split(output_B, self.z_content_b.size(0),dim=0)
-
-    if self.lambda_perceptual_random_autoencoder > 0:
-        self.z_content_a_autoenc, self.z_content_b_autoenc = self.enc_c.forward(self.fake_AA_random, self.fake_BB_random)
-
-    # zc codes for autoencoder and cross-translation
-    self.z_content_a_autoenc, self.z_content_b_autoenc = self.enc_c.forward(self.fake_AA_random, self.fake_BB_random)
-    self.z_content_a_cross, self.z_content_b_cross     = self.enc_c.forward(self.fake_A_random,  self.fake_B_random)
+    self.joint_output = self.gen.forward(self.z_content)
+    self.fake_AA_random = self.joint_output[:,0:1,:,:]
+    self.fake_BB_random = self.joint_output[:,1:2,:,:]
 
     # for display
     self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), \
                                     self.fake_AA_random[0:1].detach().cpu(), \
-                                    self.fake_A_random[0:1].detach().cpu(), \
                                     self.real_B_encoded[0:1].detach().cpu(), 
                                     self.fake_BB_random[0:1].detach().cpu(), \
-                                    self.fake_B_random[0:1].detach().cpu() ), dim=0)
+                                    ), dim=0)
 
 
   def forward_content(self):
@@ -207,49 +186,28 @@ class DRIT(nn.Module):
 
   def update_EG(self):
     # update autoencoder B end-to-end
-    self.enc_c_B_opt.zero_grad()
-    self.gen_B_opt.zero_grad()
+    self.enc_c_opt.zero_grad()
+    self.gen_opt.zero_grad()
 
-    loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_BB_random, self.real_B_encoded)
-    loss_G_L1_BB_random.backward()
+    loss_G_L1 = self.lambda_L1_random_autoencoder*self.criterionL1(self.joint_real, self.joint_output)
+    loss_G_L1.backward()
 
-    self.enc_c_B_opt.step()
-    self.gen_B_opt.step()
-
-
-    # update encoder A
-    self.enc_c_A_opt.zero_grad()
-    self.forward()
-
-    loss_paired_zc_L1 = self.lambda_paired_zc_L1 * self.criterionL1(self.z_content_a, self.z_content_b)
-    loss_paired_zc_L1.backward()
-
-    self.enc_c_A_opt.step()
-
-
-    # update decoder A
-    self.gen_A_opt.zero_grad()
-    self.forward()
-
-    loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_AA_random, self.real_A_encoded)
-    loss_G_L1_AA_random.backward()
-
-    self.gen_A_opt.step() 
+    self.enc_c_opt.step()
+    self.gen_opt.step()
 
 
     # validation losses (not used for backprop)
     # paired image translation loss
-    loss_val_L1_paired_A = self.criterionL1(self.real_A_encoded, self.fake_A_random)
-    loss_val_L1_paired_B = self.criterionL1(self.real_B_encoded, self.fake_B_random)
+    #loss_val_L1_paired_A = self.criterionL1(self.real_A_encoded, self.fake_A_random)
+    #loss_val_L1_paired_B = self.criterionL1(self.real_B_encoded, self.fake_B_random)
 
     # store losses
-    self.l1_recon_AA_random_loss = loss_G_L1_AA_random
-    self.l1_recon_BB_random_loss = loss_G_L1_BB_random
+    self.l1_recon_loss = loss_G_L1
 
-    self.l1_paired_A_val_loss = loss_val_L1_paired_A
-    self.l1_paired_B_val_loss = loss_val_L1_paired_B
+    #self.l1_paired_A_val_loss = loss_val_L1_paired_A
+    #self.l1_paired_B_val_loss = loss_val_L1_paired_B
 
-    self.zc_paired_L1_loss = loss_paired_zc_L1
+    #self.zc_paired_L1_loss = loss_paired_zc_L1
 
     
         
@@ -345,10 +303,8 @@ class DRIT(nn.Module):
     if self.lambda_adversarial > 0:
         self.disA_sch.step()
         self.disB_sch.step()
-    self.enc_c_A_sch.step()
-    self.enc_c_B_sch.step()
-    self.gen_A_sch.step()
-    self.gen_B_sch.step()
+    self.enc_c_sch.step()
+    self.gen_sch.step()
 
   def _l2_regularize(self, mu):
     mu_2 = torch.pow(mu, 2)
@@ -369,11 +325,9 @@ class DRIT(nn.Module):
       if self.lambda_adversarial > 0:
           self.disA_opt.load_state_dict(checkpoint['disA_opt'])
           self.disB_opt.load_state_dict(checkpoint['disB_opt'])
-      self.enc_c_A_opt.load_state_dict(checkpoint['enc_c_A_opt'])
-      self.enc_c_B_opt.load_state_dict(checkpoint['enc_c_B_opt'])
+      self.enc_c_opt.load_state_dict(checkpoint['enc_c_A_opt'])
       self.enc_a_opt.load_state_dict(checkpoint['enc_a_opt'])
-      self.gen_A_opt.load_state_dict(checkpoint['gen_A_opt'])
-      self.gen_B_opt.load_state_dict(checkpoint['gen_B_opt'])
+      self.gen_opt.load_state_dict(checkpoint['gen_A_opt'])
     return checkpoint['ep'], checkpoint['total_it']
 
   def save(self, filename, ep, total_it):
@@ -385,10 +339,8 @@ class DRIT(nn.Module):
              'gen': self.gen.state_dict(),
              'disA_opt': self.disA_opt.state_dict(),
              'disB_opt': self.disB_opt.state_dict(),
-             'enc_c_A_opt': self.enc_c_A_opt.state_dict(),
-             'enc_c_B_opt': self.enc_c_B_opt.state_dict(),
-             'gen_A_opt': self.gen_A_opt.state_dict(),
-             'gen_B_opt': self.gen_A_opt.state_dict(),
+             'enc_c_opt': self.enc_c_opt.state_dict(),
+             'gen_opt': self.gen_opt.state_dict(),
              'ep': ep,
              'total_it': total_it
               }
@@ -396,10 +348,8 @@ class DRIT(nn.Module):
         state = {
              'enc_c': self.enc_c.state_dict(),
              'gen': self.gen.state_dict(),
-             'enc_c_A_opt': self.enc_c_A_opt.state_dict(),
-             'enc_c_B_opt': self.enc_c_B_opt.state_dict(),
-             'gen_A_opt': self.gen_A_opt.state_dict(),
-             'gen_B_opt': self.gen_B_opt.state_dict(),
+             'enc_c_opt': self.enc_c_opt.state_dict(),
+             'gen_opt': self.gen_opt.state_dict(),
              'ep': ep,
              'total_it': total_it
               }
@@ -411,10 +361,10 @@ class DRIT(nn.Module):
     images_b = self.normalize_image(self.real_B_encoded).detach()
     images_a2 = self.normalize_image(self.fake_AA_random).detach()
     images_b2 = self.normalize_image(self.fake_BB_random).detach()
-    images_a3 = self.normalize_image(self.fake_A_random).detach()
-    images_b3 = self.normalize_image(self.fake_B_random).detach()
-    row1 = torch.cat((images_a[0:1, ::], images_a2[0:1, ::], images_a3[0:1, ::]),3)
-    row2 = torch.cat((images_b[0:1, ::], images_b2[0:1, ::], images_b3[0:1, ::]),3)
+    #images_a3 = self.normalize_image(self.fake_A_random).detach()
+    #images_b3 = self.normalize_image(self.fake_B_random).detach()
+    row1 = torch.cat((images_a[0:1, ::], images_a2[0:1, ::]),3)
+    row2 = torch.cat((images_b[0:1, ::], images_b2[0:1, ::]),3)
     return torch.cat((row1,row2),2)
 
   def normalize_image(self, x):

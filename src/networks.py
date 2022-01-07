@@ -156,19 +156,23 @@ class E_content(nn.Module):
   def __init__(self, input_dim_a, input_dim_b):
     super(E_content, self).__init__()
 
-    self.convB = get_enc_histoCAE(input_dim_a)
-    self.convA = get_enc_histoCAE(input_dim_b)
+    self.conv = get_enc_histoCAE(input_dim_a+input_dim_b)
 
-  def forward(self, xa, xb):
-    outputA = self.convA(xa)
-    outputB = self.convB(xb)
-    return outputA, outputB
+  def forward(self, xab):
+    output = self.conv(xab)
+    return output
 
   def forward_a(self, xa):
+    # treat the missing modality as a bunch of zeros
+    xb = torch.zeros_like(xa)
+    xab = torch.cat((xa,xb),dim=1) # I think dim=1 is the color channel but not sure
     outputA = self.convA(xa)
     return outputA
 
   def forward_b(self, xb):
+    # treat the missing modality as a bunch of zeros
+    xa = torch.zeros_like(xb)
+    xab = torch.cat((xa,xb),dim=1)
     outputB = self.convB(xb)
     return outputB
 
@@ -403,15 +407,21 @@ class G_concat(nn.Module):
     super(G_concat, self).__init__()
     self.nz = nz
 
-    self.decA = get_dec_histoCAE(output_dim_a)
-    self.decB = get_dec_histoCAE(output_dim_b)
+    self.dec = get_dec_histoCAE(output_dim_a+output_dim_b)
+
+  def forward(self, x):
+    out = self.dec(x)
+    return out
+    
 
   def forward_a(self, x, z):
-    out = self.decA(x);
+    out = self.dec(x)
+    out = out[:,0,:,:]
     return out
 
   def forward_b(self, x, z):
-    out = self.decB(x);
+    out = self.dec(x)
+    out = out[:,1,:,:]
     return out
 
 ####################################################################
