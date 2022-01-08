@@ -156,7 +156,7 @@ class E_content(nn.Module):
   def __init__(self, input_dim_a, input_dim_b):
     super(E_content, self).__init__()
 
-    self.conv = get_enc_histoCAE(input_dim_a+input_dim_b)
+    self.conv = get_enc_histoCAE_wide(input_dim_a+input_dim_b, 256)
 
   def forward(self, xab):
     output = self.conv(xab)
@@ -400,6 +400,42 @@ def get_dec_histoCAE(nc_out):
         ]
     
     return nn.Sequential(*net)
+
+def get_dec_histoCAE_wide(nc_out,w):
+    net = [
+        nn.Conv2d(64,w,kernel_size=3,padding=1),           # layer 17, 16x16xw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 18, 16x16xw
+        nn.Conv2d(w,w,kernel_size=3,padding=1),           # layer 19, 16x16xw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 20, 16x16xw
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 21, 32x32xw
+        nn.Conv2d(w,w,kernel_size=3,padding=1),           # layer 22, 32x32xw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 23, 32x32xw
+        nn.Conv2d(w,w,kernel_size=3,padding=1),           # layer 24, 32x32xw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 25, 32x32xw
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 26, wxwxw
+        nn.Conv2d(w,w,kernel_size=3,padding=1),           # layer 27, wxwxw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 28, wxwxw
+        nn.Conv2d(w,w,kernel_size=3,padding=1),           # layer 29, wxwxw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 30, wxwxw
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 31, 128x128xw
+        nn.Conv2d(w,w,kernel_size=3,padding=1),           # layer w, 128x128xw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 33, 128x128xw
+        nn.Conv2d(w,w,kernel_size=3,padding=1),           # layer 34, 128x128xw
+        nn.LeakyReLU(),
+        nn.InstanceNorm2d(w,affine=True),                                 # layer 35, 128x128xw
+        nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 36, 256x256xw
+        nn.Conv2d(w,nc_out,kernel_size=3,padding=1),       # layer 37, 256x256x3
+        nn.Tanh()                                           # HistoCAE used Sigmoid, we're using Tanh
+        ]
+    
+    return nn.Sequential(*net)
     
 
 class G_concat(nn.Module):
@@ -407,7 +443,7 @@ class G_concat(nn.Module):
     super(G_concat, self).__init__()
     self.nz = nz
 
-    self.dec = get_dec_histoCAE(output_dim_a+output_dim_b)
+    self.dec = get_dec_histoCAE_wide(output_dim_a+output_dim_b,128)
 
   def forward(self, x):
     out = self.dec(x)
@@ -479,6 +515,12 @@ def gaussian_weights_init(m):
   classname = m.__class__.__name__
   if classname.find('Conv') != -1 and classname.find('Conv') == 0:
     m.weight.data.normal_(0.0, 0.02)
+
+def orthogonal_weights_init(m):
+  classname = m.__class__.__name__
+  if classname.find('Conv') != -1 and classname.find('Conv') == 0:
+    torch.nn.init.orthogonal_(m.weight)
+   
 
 ####################################################################
 #-------------------------- Basic Blocks --------------------------
