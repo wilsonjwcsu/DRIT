@@ -124,21 +124,41 @@ class DRIT(nn.Module):
     self.real_B_random = real_B[half_size:]
 
     # joint-modality images
-    self.joint_real = torch.cat((self.real_A_encoded, self.real_B_encoded),dim=1)
+    self.AB_real_input = torch.cat((self.real_A_encoded, self.real_B_encoded),dim=1)
+    self.A_real_input  = torch.cat((self.real_A_encoded, torch.zeros_like(self.real_B_encoded)),dim=1)
+    self.B_real_input  = torch.cat((torch.zeros_like(self.real_A_encoded), self.real_B_encoded),dim=1)
+
+    # concatenate AB, A, and B inputs along batch dimension so we can pass all to encoder in a single call
+    input_concatenated = torch.cat((self.AB_real_input, self.A_real_input, self.B_real_input),dim=0)
 
     # get encoded z_c
-    self.z_content = self.enc_c.forward(self.joint_real)
+    self.z_content = self.enc_c.forward(input_concatenated)
 
-    # random-attr autoencoder (fake_AA_random and fake_BB_random) and cross-coder (fake_A_random and fake_B_random)
-    self.joint_output = self.gen.forward(self.z_content)
-    self.fake_AA_random = self.joint_output[:,0:1,:,:]
-    self.fake_BB_random = self.joint_output[:,1:2,:,:]
+    # random-attr autoencoder (ABtoA and ABtoB) and cross-coder (fake_A_random and fake_B_random)
+    self.output_concatenated = self.gen.forward(self.z_content)
+
+    # split apart generator outputs
+    self.ABtoAB = self.output_concatenated[0:1,:,:,:] # not sure if I should use indexing or torch.split
+    self.ABtoA = self.ABtoAB[:,0:1,:,:]
+    self.ABtoB = self.ABtoAB[:,1:2,:,:]
+
+    self.AtoAB = self.output_concatenated[1:2,:,:,:]
+    self.AtoA = self.AtoAB[:,0:1,:,:]
+    self.AtoB = self.AtoAB[:,1:2,:,:]
+
+    self.BtoAB = self.output_concatenated[2:3,:,:,:]
+    self.BtoA = self.BtoAB[:,0:1,:,:]
+    self.BtoB = self.BtoAB[:,1:2,:,:]
 
     # for display
     self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), \
-                                    self.fake_AA_random[0:1].detach().cpu(), \
+                                    self.ABtoA[0:1].detach().cpu(), \
+                                    self.AtoA[0:1].detach().cpu(), \
+                                    self.BtoA[0:1].detach().cpu(), \
                                     self.real_B_encoded[0:1].detach().cpu(), 
-                                    self.fake_BB_random[0:1].detach().cpu(), \
+                                    self.ABtoB[0:1].detach().cpu(), \
+                                    self.AtoB[0:1].detach().cpu(), \
+                                    self.BtoB[0:1].detach().cpu() \
                                     ), dim=0)
 
 
@@ -158,13 +178,13 @@ class DRIT(nn.Module):
     if self.lambda_adversarial > 0:
         # update disA
         self.disA_opt.zero_grad()
-        loss_D1_A = self.backward_D(self.disA, self.real_A_encoded, self.fake_AA_random)
+        loss_D1_A = self.backward_D(self.disA, self.real_A_encoded, self.ABtoA)
         self.disA_loss = loss_D1_A.item()
         self.disA_opt.step()
 
         # update disB
         self.disB_opt.zero_grad()
-        loss_D1_B = self.backward_D(self.disB, self.real_B_encoded, self.fake_BB_random)
+        loss_D1_B = self.backward_D(self.disB, self.real_B_encoded, self.ABtoB)
         self.disB_loss = loss_D1_B.item()
         self.disB_opt.step()
 
@@ -189,7 +209,7 @@ class DRIT(nn.Module):
     self.enc_c_opt.zero_grad()
     self.gen_opt.zero_grad()
 
-    loss_G_L1 = self.lambda_L1_random_autoencoder*self.criterionL1(self.joint_real, self.joint_output)
+    loss_G_L1 = self.lambda_L1_random_autoencoder*self.criterionL1(self.AB_real_input, self.ABtoAB)
     loss_G_L1.backward()
 
     self.enc_c_opt.step()
@@ -231,13 +251,13 @@ class DRIT(nn.Module):
     loss_G_GAN_A = 0
     loss_G_GAN_B = 0
     if self.lambda_adversarial > 0:
-        loss_G_GAN_A = self.lambda_adversarial*self.backward_G_GAN(self.fake_AA_random, self.disA)
-        loss_G_GAN_B = self.lambda_adversarial*self.backward_G_GAN(self.fake_BB_random, self.disB)
+        loss_G_GAN_A = self.lambda_adversarial*self.backward_G_GAN(self.ABtoA, self.disA)
+        loss_G_GAN_B = self.lambda_adversarial*self.backward_G_GAN(self.ABtoB, self.disB)
 
 
     # random-attribute autoencoder reconstruction loss
-    loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_AA_random, self.real_A_encoded)
-    loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.fake_BB_random, self.real_B_encoded)
+    loss_G_L1_AA_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.ABtoA, self.real_A_encoded)
+    loss_G_L1_BB_random = self.lambda_L1_random_autoencoder*self.criterionL1(self.ABtoB, self.real_B_encoded)
 
 
     # contrastive paired content embedding loss
@@ -359,8 +379,8 @@ class DRIT(nn.Module):
   def assemble_outputs(self):
     images_a = self.normalize_image(self.real_A_encoded).detach()
     images_b = self.normalize_image(self.real_B_encoded).detach()
-    images_a2 = self.normalize_image(self.fake_AA_random).detach()
-    images_b2 = self.normalize_image(self.fake_BB_random).detach()
+    images_a2 = self.normalize_image(self.ABtoA).detach()
+    images_b2 = self.normalize_image(self.ABtoB).detach()
     #images_a3 = self.normalize_image(self.fake_A_random).detach()
     #images_b3 = self.normalize_image(self.fake_B_random).detach()
     row1 = torch.cat((images_a[0:1, ::], images_a2[0:1, ::]),3)
