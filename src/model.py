@@ -134,6 +134,11 @@ class DRIT(nn.Module):
     # get encoded z_c
     self.z_content = self.enc_c.forward(input_concatenated)
 
+    # split apart loss terms for calculating loss functions later
+    self.z_AB = self.z_content[0:1,:,:,:];
+    self.z_A  = self.z_content[1:2,:,:,:];
+    self.z_B  = self.z_content[2:3,:,:,:];
+
     # random-attr autoencoder (ABtoA and ABtoB) and cross-coder (fake_A_random and fake_B_random)
     self.output_concatenated = self.gen.forward(self.z_content)
 
@@ -205,15 +210,23 @@ class DRIT(nn.Module):
         return loss_D
 
   def update_EG(self):
-    # update autoencoder B end-to-end
+    # update autoencoder AB end-to-end
     self.enc_c_opt.zero_grad()
     self.gen_opt.zero_grad()
 
     loss_G_L1 = self.lambda_L1_random_autoencoder*self.criterionL1(self.AB_real_input, self.ABtoAB)
-    loss_G_L1.backward()
+    loss_G_L1.backward(retain_graph=True)
+
+    self.gen_opt.step()
+
+    # update embedding losses
+    loss_L1_z_AB_A = self.lambda_paired_zc_L1*self.criterionL1(self.z_AB.detach(), self.z_A)
+    loss_L1_z_AB_B = self.lambda_paired_zc_L1*self.criterionL1(self.z_AB.detach(), self.z_B)
+
+    loss_paired_z = loss_L1_z_AB_A + loss_L1_z_AB_B
+    loss_paired_z.backward()
 
     self.enc_c_opt.step()
-    self.gen_opt.step()
 
 
     # validation losses (not used for backprop)
@@ -223,6 +236,8 @@ class DRIT(nn.Module):
 
     # store losses
     self.l1_recon_loss = loss_G_L1
+    self.l1_z_paired_A_loss = loss_L1_z_AB_A
+    self.l1_z_paired_B_loss = loss_L1_z_AB_B
 
     #self.l1_paired_A_val_loss = loss_val_L1_paired_A
     #self.l1_paired_B_val_loss = loss_val_L1_paired_B
