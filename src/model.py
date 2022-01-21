@@ -125,8 +125,8 @@ class DRIT(nn.Module):
 
     # joint-modality images
     self.AB_real_input = torch.cat((self.real_A_encoded, self.real_B_encoded),dim=1)
-    self.A_real_input  = torch.cat((self.real_A_encoded, torch.zeros_like(self.real_B_encoded)),dim=1)
-    self.B_real_input  = torch.cat((torch.zeros_like(self.real_A_encoded), self.real_B_encoded),dim=1)
+    self.A_real_input  = torch.cat((self.real_A_encoded, 1+2*torch.rand_like(self.real_B_encoded)),dim=1)
+    self.B_real_input  = torch.cat((1+2*torch.rand_like(self.real_A_encoded), self.real_B_encoded),dim=1)
 
     # concatenate AB, A, and B inputs along batch dimension so we can pass all to encoder in a single call
     input_concatenated = torch.cat((self.AB_real_input, self.A_real_input, self.B_real_input),dim=0)
