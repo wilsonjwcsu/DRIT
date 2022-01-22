@@ -160,6 +160,7 @@ class E_content(nn.Module):
 
   def forward(self, xab):
     output = self.conv(xab)
+    output = output / torch.norm(output,p=2) # restrict latent codes to unit hypersphere
     return output
 
   def forward_a(self, xa):
