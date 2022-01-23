@@ -123,6 +123,7 @@ def get_enc_histoCAE(nc_in):
 
 def get_enc_histoCAE_wide(nc_in, w):
     net = [
+          nn.Dropout(p=0.5),
           nn.Conv2d(nc_in,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'), # layer 1, 256x256xw
           nn.ELU(),
           nn.InstanceNorm2d(w,affine=True),                                   # layer 2, 256x256xw
