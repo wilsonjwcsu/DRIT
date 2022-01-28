@@ -155,15 +155,32 @@ class DRIT(nn.Module):
     self.BtoA = self.BtoAB[:,0:1,:,:]
     self.BtoB = self.BtoAB[:,1:2,:,:]
 
+    # cycle unimodal-input results through autoencoder
+    self.input_cycle = torch.cat((self.AtoAB, self.BtoAB), dim=0)
+    self.z_cycle = self.enc_c.forward( self.input_cycle )
+    self.output_cycle_concatenated = self.gen.forward( self.z_cycle )
+
+    self.AtoAB_cycled = self.output_cycle_concatenated[0:1,:,:,:]
+    self.AtoA_cycled = self.AtoAB_cycled[:,0:1,:,:]
+    self.AtoB_cycled = self.AtoAB_cycled[:,1:2,:,:]
+
+    self.BtoAB_cycled = self.output_cycle_concatenated[1:2,:,:,:]
+    self.BtoA_cycled = self.BtoAB_cycled[:,0:1,:,:]
+    self.BtoB_cycled = self.BtoAB_cycled[:,1:2,:,:]
+
     # for display
     self.image_display = torch.cat((self.real_A_encoded[0:1].detach().cpu(), \
                                     self.ABtoA[0:1].detach().cpu(), \
                                     self.AtoA[0:1].detach().cpu(), \
+                                    self.AtoA_cycled[0:1].detach().cpu(), \
                                     self.BtoA[0:1].detach().cpu(), \
+                                    self.BtoA_cycled[0:1].detach().cpu(), \
                                     self.real_B_encoded[0:1].detach().cpu(), 
                                     self.ABtoB[0:1].detach().cpu(), \
                                     self.AtoB[0:1].detach().cpu(), \
-                                    self.BtoB[0:1].detach().cpu() \
+                                    self.AtoB_cycled[0:1].detach().cpu(), \
+                                    self.BtoB[0:1].detach().cpu(), \
+                                    self.BtoB_cycled[0:1].detach().cpu() \
                                     ), dim=0)
 
 
