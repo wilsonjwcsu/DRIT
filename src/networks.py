@@ -126,32 +126,32 @@ def get_enc_histoCAE_wide(nc_in, w):
           nn.Dropout(p=0.5),
           nn.Conv2d(nc_in,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'), # layer 1, 256x256xw
           nn.ELU(),
-          nn.InstanceNorm2d(w,affine=True),                                   # layer 2, 256x256xw
+          nn.LayerNorm([w,256,256]),
           nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'),     # layer 3, 128x128xw
           nn.ELU(),
           nn.AvgPool2d(2),
-          nn.InstanceNorm2d(w,affine=True),                                   # layer 4, 128x128xw
+          nn.LayerNorm([w,128,128]),
           nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'),     # layer 5, 128x128xw
           nn.ELU(),
-          nn.InstanceNorm2d(w,affine=True),                                   # layer 6, 128x128xw
+          nn.LayerNorm([w,128,128]),
           nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'),     # layer 7, 64x64xw
           nn.ELU(),
           nn.AvgPool2d(2),
-          nn.InstanceNorm2d(w,affine=True),                                   # layer 8, 64x64xw
+          nn.LayerNorm([w,64,64]),
           nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'),     # layer 9, 64x64xw
           nn.ELU(),
-          nn.InstanceNorm2d(w,affine=True),                                   # layer 10, 64x64xw
+          nn.LayerNorm([w,64,64]),
           nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'),     # layer 11, 32x32xw
           nn.ELU(),
           nn.AvgPool2d(2),
-          nn.InstanceNorm2d(w,affine=True),                                   # layer 12, 32x32xw
+          nn.LayerNorm([w,32,32]),
           nn.Conv2d(w,w,kernel_size=3,stride=1,padding=1,padding_mode='reflect'),     # layer 13, 32x32xw
           nn.ELU(),
-          nn.InstanceNorm2d(w,affine=True),                                   # layer 14, 32x32xw
+          nn.LayerNorm([w,32,32]),
           nn.Conv2d(w,64,kernel_size=3,stride=1,padding=1,padding_mode='reflect'),    # layer 15, 16x16x64
           nn.Tanh(),
           nn.AvgPool2d(2),
-          nn.InstanceNorm2d(64)                                   # layer 16, 16x16x64
+          nn.LayerNorm([64,16,16])
           ]
 
     return nn.Sequential(*net)
@@ -411,34 +411,34 @@ def get_dec_histoCAE_wide(nc_out,w):
     net = [
         nn.Conv2d(64,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer 17, 16x16xw
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 18, 16x16xw
+        nn.LayerNorm([w,16,16]),
         nn.Conv2d(w,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer 19, 16x16xw
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 20, 16x16xw
+        nn.LayerNorm([w,16,16]),
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 21, 32x32xw
         nn.Conv2d(w,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer 22, 32x32xw
         #nn.ConvTranspose2d(w,w,kernel_size=3,padding=1,stride=2,output_padding=1),
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 23, 32x32xw
+        nn.LayerNorm([w,32,32]),
         nn.Conv2d(w,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer 24, 32x32xw
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 25, 32x32xw
+        nn.LayerNorm([w,32,32]),
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 26, wxwxw
         nn.Conv2d(w,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer 27, wxwxw
         #nn.ConvTranspose2d(w,w,kernel_size=3,padding=1,stride=2,output_padding=1),
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 28, wxwxw
+        nn.LayerNorm([w,64,64]),
         nn.Conv2d(w,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer 29, wxwxw
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 30, wxwxw
+        nn.LayerNorm([w,64,64]),
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 31, 128x128xw
         nn.Conv2d(w,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer w, 128x128xw
         #nn.ConvTranspose2d(w,w,kernel_size=3,padding=1,stride=2,output_padding=1),
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 33, 128x128xw
+        nn.LayerNorm([w,128,128]),
         nn.Conv2d(w,w,kernel_size=3,padding=1,padding_mode='reflect'),           # layer 34, 128x128xw
         nn.ELU(),
-        nn.InstanceNorm2d(w,affine=True),                                 # layer 35, 128x128xw
+        nn.LayerNorm([w,128,128]),
         nn.Upsample(scale_factor=(2,2),mode='bilinear'),    # layer 36, 256x256xw
         nn.Conv2d(w,nc_out,kernel_size=3,padding=1,padding_mode='reflect'),       # layer 37, 256x256x3
         #nn.ConvTranspose2d(w,2,kernel_size=3,padding=1,stride=2,output_padding=1),
