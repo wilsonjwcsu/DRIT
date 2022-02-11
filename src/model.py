@@ -56,6 +56,7 @@ class DRIT(nn.Module):
 
     # Setup the loss function for training
     self.criterionL1 = torch.nn.L1Loss()
+    self.criterionMSE = torch.nn.MSELoss()
     if self.contrastive_paired_zc:
         self.criterionTriplet = nn.TripletMarginLoss(margin=self.contrastive_margin, p=opts.triplet_distance_norm)
 
@@ -220,10 +221,10 @@ class DRIT(nn.Module):
     self.gen_opt.step()
 
     # update embedding losses
-    loss_L1_z_AB_A = self.lambda_paired_zc_L1*self.criterionL1(self.z_AB.detach(), self.z_A)
-    loss_L1_z_AB_B = self.lambda_paired_zc_L1*self.criterionL1(self.z_AB.detach(), self.z_B)
+    loss_MSE_z_AB_A = self.lambda_paired_zc_L1*self.criterionMSE(self.z_AB.detach(), self.z_A)
+    loss_MSE_z_AB_B = self.lambda_paired_zc_L1*self.criterionMSE(self.z_AB.detach(), self.z_B)
 
-    loss_paired_z = loss_L1_z_AB_A + loss_L1_z_AB_B
+    loss_paired_z = loss_MSE_z_AB_A + loss_MSE_z_AB_B
     loss_paired_z.backward()
 
     self.enc_c_opt.step()
@@ -236,8 +237,8 @@ class DRIT(nn.Module):
 
     # store losses
     self.l1_recon_loss = loss_G_L1
-    self.l1_z_paired_A_loss = loss_L1_z_AB_A
-    self.l1_z_paired_B_loss = loss_L1_z_AB_B
+    self.l1_z_paired_A_loss = loss_MSE_z_AB_A
+    self.l1_z_paired_B_loss = loss_MSE_z_AB_B
 
     #self.l1_paired_A_val_loss = loss_val_L1_paired_A
     #self.l1_paired_B_val_loss = loss_val_L1_paired_B
